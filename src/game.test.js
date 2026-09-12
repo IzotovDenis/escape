@@ -119,3 +119,16 @@ test('Pursuer stands during grace and door waits, and runs only when actually mo
   assert.equal(game.enemyMoving, true);
   updateGame(game, 0, none); assert.equal(game.enemyMoving, false);
 });
+
+test('Analog movement preserves partial stick speed and clamps diagonal input', () => {
+  const simulate = (x, z) => {
+    const game = newGame(); game.state = 'playing';
+    const start = { ...game.player };
+    updateGame(game, 0.05, { x, z, sprint: false });
+    return distance(start, game.player);
+  };
+  const full = simulate(0, -1);
+  assert.ok(Math.abs(simulate(0, -0.25) - full * 0.25) < 1e-8);
+  assert.ok(Math.abs(simulate(1, -1) - full) < 1e-8);
+  assert.equal(simulate(0, 0), 0);
+});

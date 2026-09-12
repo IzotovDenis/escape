@@ -104,7 +104,7 @@ export function updateGame(game, dt, input) {
   if (game.tired && game.stamina >= 0.28) game.tired = false;
   const sprint = moving && input.sprint && !game.tired && game.stamina > 0;
   const speed = sprint ? 6 : 3.45;
-  const len = Math.hypot(input.x, input.z) || 1;
+  const len = Math.max(1, Math.hypot(input.x, input.z));
   move(game.player, input.x / len * speed * dt, input.z / len * speed * dt, game.openedDoors);
   const room = roomAt(game.player);
   if (room) game.visitedRooms.add(room.id);

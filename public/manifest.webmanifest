@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "Перемена — школьные догонялки",
+  "short_name": "Перемена",
+  "description": "Исследуй школу, собери 20 тетрадей и не дай себя догнать.",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ede9e0",
+  "theme_color": "#7651bf",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

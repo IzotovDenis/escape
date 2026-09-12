@@ -1,4 +1,6 @@
 import './style.css';
+import './pwa.js';
+import { createTouchControls } from './touch.js';
 import { createWorld } from './world.js';
 import { grid, SIZE, CELL, ORIGIN, DOORS, EXIT, TOTAL, newGame, updateGame, interact, nearby, nearbyDoor, roomAt, distance, tile, formatTime } from './game.js';
 
@@ -51,6 +53,7 @@ function toast(message, duration = 3500) {
 }
 function unlock() { if (document.pointerLockElement) document.exitPointerLock(); }
 async function lock() {
+  if (touch.enabled) return;
   if (document.pointerLockElement === $('world')) return;
   try {
     if (!$('world').requestPointerLock) throw new Error('not supported');
@@ -58,6 +61,7 @@ async function lock() {
   } catch { if (screen === 'playing') toast('Обзор: зажми мышь и двигай её, или используй ← →.', 5500); }
 }
 function reset() {
+  touch.reset(); mapVisible = false; $('map-wrap').hidden = true;
   game = newGame(mode); yaw = 0; pitch = -0.015; walkPhase = 0; footTimer = 0;
   $('count').textContent = '0'; $('confetti').replaceChildren();
   updateMap();
@@ -67,24 +71,25 @@ function start() {
   reset(); screen = 'playing'; game.state = 'playing';
   $('welcome').hidden = true; $('hud').hidden = false; $('modal').hidden = true;
   document.body.classList.add('playing');
+  touch.setActive(true);
   enableAudio(); jingle('start'); void lock();
-  toast('20 тетрадей спрятаны в классах. E — открыть дверь, M — план школы. У тебя 12 секунд форы!', 7000);
+  toast(touch.enabled ? 'Слева — идти, справа — обзор. «Бег» ускоряет. Найди 20 тетрадей! У тебя 12 секунд форы.' : '20 тетрадей спрятаны в классах. E — открыть дверь, M — план школы. У тебя 12 секунд форы!', 7000);
 }
 $('start').addEventListener('click', start);
 $('restart').addEventListener('click', start);
 $('resume').addEventListener('click', () => {
   if (screen === 'paused') {
-    screen = 'playing'; game.state = 'playing'; $('modal').hidden = true; keys.clear(); void lock();
+    screen = 'playing'; game.state = 'playing'; $('modal').hidden = true; keys.clear(); touch.setActive(true); void lock();
   } else start();
 });
 $('home').addEventListener('click', () => {
-  screen = 'welcome'; game.state = 'welcome'; unlock(); keys.clear();
+  screen = 'welcome'; game.state = 'welcome'; unlock(); keys.clear(); touch.setActive(false);
   reset(); game.state = 'welcome'; $('modal').hidden = true; $('hud').hidden = true; $('welcome').hidden = false;
   document.body.classList.remove('playing'); $('start').focus();
 });
 function pause() {
   if (screen !== 'playing') return;
-  screen = 'paused'; game.state = 'paused'; keys.clear(); dragging = false; unlock();
+  screen = 'paused'; game.state = 'paused'; keys.clear(); dragging = false; unlock(); touch.setActive(false);
   $('modal').hidden = false; $('modal-symbol').textContent = 'Ⅱ';
   $('modal-eyebrow').textContent = 'МОЖНО ВЫДОХНУТЬ'; $('modal-title').innerHTML = 'Перемена<br>на паузе.';
   $('modal-description').textContent = 'Школа подождёт. Продолжим, когда будешь готов.';
@@ -93,7 +98,7 @@ function pause() {
 }
 $('pause-button').addEventListener('click', pause);
 function finish(result) {
-  screen = result; keys.clear(); unlock(); jingle(result);
+  screen = result; keys.clear(); unlock(); jingle(result); touch.setActive(false);
   $('modal').hidden = false; $('result-stats').hidden = false; $('restart').hidden = true;
   $('resume').firstElementChild.textContent = 'Ещё одну перемену';
   if (result === 'won') {
@@ -130,10 +135,15 @@ function use() {
     updateMap(); hud();
   } else if (result === 'door-blocked') toast('Отойди на шаг от порога, чтобы закрыть дверь.');
   else if (result === 'won') finish('won');
-  else if (result === 'locked') toast(`Для выхода нужно ещё ${TOTAL - game.collected.size} тетрадей. Найти их поможет карта — M.`);
+  else if (result === 'locked') toast(`Для выхода нужно ещё ${TOTAL - game.collected.size} тетрадей. Найти их поможет карта.`);
 }
 function toggleMap() { mapVisible = !mapVisible; $('map-wrap').hidden = !mapVisible; if (mapVisible) updateMap(); }
 $('map-toggle').addEventListener('click', toggleMap);
+const touch = createTouchControls({
+  isPlaying: () => screen === 'playing',
+  turn: (x, y) => { yaw -= x; pitch = Math.max(-0.85, Math.min(0.85, pitch - y)); },
+  use,
+});
 
 const handledKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'KeyE', 'KeyM', 'Escape'];
 addEventListener('keydown', event => {
@@ -155,7 +165,7 @@ document.addEventListener('pointerlockchange', () => {
 document.addEventListener('pointerlockerror', () => {
   if (screen === 'playing') toast('Обзор: зажми мышь и двигай её, или используй ← →.', 5500);
 });
-$('world').addEventListener('pointerdown', event => { if (screen === 'playing' && event.button === 0) { dragging = true; if (!document.pointerLockElement) void lock(); } });
+$('world').addEventListener('pointerdown', event => { if (event.pointerType !== 'touch' && screen === 'playing' && event.button === 0) { dragging = true; if (!document.pointerLockElement) void lock(); } });
 addEventListener('pointerup', () => { dragging = false; });
 addEventListener('mousemove', event => {
   if (screen !== 'playing' || (!document.pointerLockElement && !dragging)) return;
@@ -192,6 +202,7 @@ function hud() {
   $('chase-label').textContent = game.grace > 0 ? `Фора: ещё ${Math.ceil(game.grace)} сек.` : game.tired ? 'Переведи дух — энергия вернётся' : d < 5 ? 'Уже близко! Самое время ускориться' : d < 12 ? 'Соперник где-то неподалёку' : 'Отличный отрыв. Ищи тетради!';
   $('danger').style.boxShadow = `inset 0 0 100px 25px rgba(238,183,107,${Math.max(0, 1 - d / 6) * 0.24})`;
   const book = nearby(game), door = nearbyDoor(game), exit = distance(game.player, EXIT) < 2;
+  touch.setAction(book ? 'Взять' : door ? game.openedDoors.has(door.id) ? 'Закрыть' : 'Открыть' : exit ? 'Выход' : 'Действие', !!(book || door || exit));
   $('interaction').hidden = !book && !door && !exit;
   if (book || door || exit) $('interaction').lastElementChild.textContent = book ? 'Взять тетрадь' : door ? `${game.openedDoors.has(door.id) ? 'Закрыть' : 'Открыть'} · ${door.name}` : game.collected.size === TOTAL ? 'Выйти из школы' : `Выход · нужны ${TOTAL} тетрадей`;
   const t = tile(game.player);
@@ -205,10 +216,10 @@ function hud() {
 function frame(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.05); lastTime = now;
   if (screen === 'playing') {
-    const forward = Number(keys.has('KeyW') || keys.has('ArrowUp')) - Number(keys.has('KeyS') || keys.has('ArrowDown'));
-    const right = Number(keys.has('KeyD')) - Number(keys.has('KeyA'));
+    const forward = Number(keys.has('KeyW') || keys.has('ArrowUp')) - Number(keys.has('KeyS') || keys.has('ArrowDown')) + touch.input.forward;
+    const right = Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + touch.input.right;
     yaw += (Number(keys.has('ArrowLeft')) - Number(keys.has('ArrowRight'))) * dt * 1.65;
-    const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight');
+    const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') || touch.input.sprint;
     const input = { x: -Math.sin(yaw) * forward + Math.cos(yaw) * right, z: -Math.cos(yaw) * forward - Math.sin(yaw) * right, sprint };
     const previous = { ...game.player };
     updateGame(game, dt, input);
@@ -236,7 +247,7 @@ try {
   updateMap(); requestAnimationFrame(frame);
   if (import.meta.env.DEV) {
     // Read-only diagnostics for local QA; omitted from production builds.
-    window.__PEREMENA__ = () => ({ state: screen, player: { ...game.player }, enemy: { ...game.enemy }, count: game.collected.size, pose: world.runner.userData.pose, openedDoors: [...game.openedDoors], stamina: game.stamina, elapsed: game.elapsed, mode: game.mode, frame: world.renderer.info.render.frame, calls: world.renderer.info.render.calls, triangles: world.renderer.info.render.triangles, pointerLocked: !!document.pointerLockElement });
+    window.__PEREMENA__ = () => ({ state: screen, yaw, pitch, touch: { ...touch.input }, player: { ...game.player }, enemy: { ...game.enemy }, count: game.collected.size, pose: world.runner.userData.pose, openedDoors: [...game.openedDoors], stamina: game.stamina, elapsed: game.elapsed, mode: game.mode, frame: world.renderer.info.render.frame, calls: world.renderer.info.render.calls, triangles: world.renderer.info.render.triangles, pointerLocked: !!document.pointerLockElement });
   }
 } catch (error) {
   console.error('School initialization failed:', error);

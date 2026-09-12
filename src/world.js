@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { CELL, SIZE, open, at, BOOKS, EXIT, SPAWN, TOTAL, ROOMS, DOORS } from './game.js';
 
 export async function createWorld(canvas) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
+  const mobile = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.25 : 1.7));
   renderer.setSize(innerWidth, innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -22,7 +23,7 @@ export async function createWorld(canvas) {
   sun.position.set(28, 45, 38); sun.target.position.set(0, 0, 7);
   sun.castShadow = true;
   Object.assign(sun.shadow.camera, { left: -66, right: 66, top: 66, bottom: -66, near: 1, far: 150 });
-  sun.shadow.mapSize.set(2048, 2048); sun.shadow.normalBias = 0.025;
+  sun.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048); sun.shadow.normalBias = 0.025;
   scene.add(sun, sun.target);
 
   const materials = new Map(), batches = new Map();

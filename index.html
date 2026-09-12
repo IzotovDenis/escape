@@ -2,8 +2,13 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#ede9e0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#7651bf" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Перемена" />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%icons/apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Перемена — школьные догонялки</title>
   </head>
@@ -11,7 +16,7 @@
     <canvas id="world" aria-label="Объёмная школа — игровая сцена"></canvas>
     <div class="scene-shade" aria-hidden="true"></div>
     <header class="topbar">
-      <a class="brand" href="/" aria-label="Перемена — главное меню"><span class="brand-mark">↗</span>перемена<span class="brand-dot">.</span></a>
+      <a class="brand" href="%BASE_URL%" aria-label="Перемена — главное меню"><span class="brand-mark">↗</span>перемена<span class="brand-dot">.</span></a>
       <div class="top-actions"><span class="edition">ТВОЯ ШКОЛА. ТВОЯ ИГРА.</span><button id="sound" class="icon-button" aria-label="Выключить звук" title="Звук">♫</button><button id="fullscreen" class="icon-button" aria-label="На весь экран" title="На весь экран">⛶</button></div>
     </header>
 
@@ -23,6 +28,16 @@
         <div class="difficulty" aria-label="Сложность"><button class="selected" data-mode="easy" aria-pressed="true">☀ Для разминки</button><button data-mode="normal" aria-pressed="false">ϟ Побыстрее</button></div>
         <button id="start" class="primary" disabled><span id="start-label">Готовим школу…</span><span aria-hidden="true">↗</span></button>
         <p class="start-note">Без страшилок. Только азарт и жёлтые носки.</p>
+        <details id="install-panel" class="install-panel">
+          <summary>↗ На экран телефона</summary>
+          <div class="install-content">
+            <p><strong>Android:</strong> меню Chrome ⋮ → «Установить приложение» или «Добавить на главный экран».</p>
+            <p><strong>iPhone / iPad:</strong> открой в Safari → «Поделиться» → «На экран Домой». Если есть переключатель «Открывать как веб-приложение», включи его.</p>
+            <p id="offline-status" role="status">Сохраняем игру для запуска без интернета…</p>
+            <button id="install-app" class="secondary" hidden>Установить игру</button>
+            <button id="update-app" class="secondary" hidden>Обновить игру</button>
+          </div>
+        </details>
         <p id="load-error" class="error" role="alert" hidden></p>
       </div>
       <div class="hero-tag" aria-hidden="true"><span class="tag-star">✳</span><div>А вот и твой<br><strong>соперник!</strong></div><span class="tag-arrow">↘</span></div>
@@ -45,6 +60,11 @@
       <div id="danger" class="danger" aria-hidden="true"></div>
     </section>
 
+    <div id="touch-controls" class="touch-controls" aria-label="Сенсорное управление" hidden>
+      <div id="joystick" class="joystick" role="group" aria-label="Джойстик движения"><span class="joystick-guide" aria-hidden="true">↑</span><span id="joystick-knob"></span><span class="joystick-label">ИДТИ</span></div>
+      <div class="touch-look-hint" aria-hidden="true">Проведи справа — обзор</div>
+      <div class="touch-actions"><button id="touch-sprint" aria-pressed="false">ϟ Бег</button><button id="touch-use" disabled>Действие</button></div>
+    </div>
     <section id="modal" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="modal-title">
       <div class="modal-card"><span id="modal-symbol" class="modal-symbol">Ⅱ</span><div id="modal-eyebrow" class="eyebrow">МОЖНО ВЫДОХНУТЬ</div><h2 id="modal-title">Перемена<br>на паузе.</h2><p id="modal-description">Школа подождёт. Продолжим, когда будешь готов.</p><div id="result-stats" class="result-stats" hidden></div><button id="resume" class="primary"><span>Продолжить</span><span>→</span></button><button id="restart" class="secondary">Начать заново</button><button id="home" class="text-button">В главное меню</button><p class="modal-controls">WASD — идти · Shift — бежать · E — двери и тетради<br>Мышь или ← → — обзор · M — карта</p></div>
     </section>
