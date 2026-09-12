@@ -1,5 +1,6 @@
 import './style.css';
 import './pwa.js';
+import { createAudio } from './audio.js';
 import { createTouchControls } from './touch.js';
 import { createWorld } from './world.js';
 import { grid, SIZE, CELL, ORIGIN, DOORS, EXIT, TOTAL, BOOKS, nearbyCat, newGame, updateGame, interact, nearby, nearbyDoor, roomAt, distance, tile, formatTime } from './game.js';
@@ -7,33 +8,32 @@ import { grid, SIZE, CELL, ORIGIN, DOORS, EXIT, TOTAL, BOOKS, nearbyCat, newGame
 const $ = id => document.getElementById(id);
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let game = newGame(), mode = 'easy', world, screen = 'welcome', yaw = 0, pitch = 0;
-let lastTime = performance.now(), walkPhase = 0, footTimer = 0, toastTimer, audio, muted = false, mapVisible = false;
+let lastTime = performance.now(), walkPhase = 0, footTimer = 0, toastTimer, muted = false, mapVisible = false;
 let lockedBefore = false, dragging = false, best = 0;
 let mapSignature = '';
 const keys = new Set();
 try { muted = localStorage.getItem('peremena-muted') === 'true'; best = Number(localStorage.getItem('peremena-best-20') || 0); } catch { /* Storage is optional in private browsing. */ }
 
+const audio = createAudio();
+audio.setMuted(muted);
+let stepSide = 1, petSoundAt = 0, rivalStep = 0;
 function sound(frequency = 440, duration = 0.14, volume = 0.035, type = 'sine', delay = 0) {
-  if (muted || !audio || audio.state !== 'running') return;
-  const oscillator = audio.createOscillator(), gain = audio.createGain(), time = audio.currentTime + delay;
-  oscillator.type = type; oscillator.frequency.setValueAtTime(frequency, time);
-  gain.gain.setValueAtTime(0, time); gain.gain.linearRampToValueAtTime(volume, time + 0.01); gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
-  oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(time); oscillator.stop(time + duration + 0.02);
-  oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+  audio.layer({ frequency, duration, volume: volume * 2.5, type, delay });
 }
 function jingle(kind) {
   const notes = kind === 'won' ? [523, 659, 784, 1047] : kind === 'book' ? [659, 880, 1047] : kind === 'caught' ? [440, 349, 392] : [523, 784];
   notes.forEach((note, i) => sound(note, 0.24, 0.045, 'sine', i * 0.1));
 }
-function enableAudio() {
-  try { audio ??= new (window.AudioContext || window.webkitAudioContext)(); void audio.resume().catch(() => {}); } catch { /* The game works without audio. */ }
-}
+function enableAudio() { return audio.unlock(); }
+// Recover suspended audio after phone interruptions on the next gesture.
+addEventListener('pointerdown', () => { if (!muted) void enableAudio(); }, { capture: true });
+addEventListener('keydown', () => { if (!muted) void enableAudio(); }, { capture: true });
 function updateSoundButton() {
   $('sound').textContent = muted ? '♪̸' : '♫';
   $('sound').setAttribute('aria-label', muted ? 'Включить звук' : 'Выключить звук');
   $('sound').setAttribute('aria-pressed', String(!muted));
 }
-$('sound').addEventListener('click', () => { muted = !muted; enableAudio(); updateSoundButton(); try { localStorage.setItem('peremena-muted', String(muted)); } catch {} });
+$('sound').addEventListener('click', () => { muted = !muted; audio.setMuted(muted); void enableAudio().then(() => { if (!muted) jingle('start'); }); updateSoundButton(); try { localStorage.setItem('peremena-muted', String(muted)); } catch {} });
 updateSoundButton();
 $('fullscreen').addEventListener('click', async () => {
   try {
@@ -62,6 +62,7 @@ async function lock() {
   } catch { if (screen === 'playing') toast('Обзор: зажми мышь и двигай её, или используй ← →.', 5500); }
 }
 function reset() {
+  audio.stop(); petSoundAt = 5; rivalStep = 0; stepSide = 1;
   touch.reset(); mapVisible = false; $('map-wrap').hidden = true;
   game = newGame(mode); yaw = 0; pitch = -0.015; walkPhase = 0; footTimer = 0;
   $('count').textContent = '0'; $('confetti').replaceChildren();
@@ -73,13 +74,14 @@ function start() {
   $('welcome').hidden = true; $('hud').hidden = false; $('modal').hidden = true;
   document.body.classList.add('playing');
   touch.setActive(true); void touch.requestLandscape();
-  enableAudio(); jingle('start'); void lock();
+  void enableAudio().then(() => { if (screen === 'playing') jingle('start'); }); void lock();
   toast(touch.enabled ? 'Слева — идти, справа — обзор. Удерживай «Бег», чтобы ускориться. Найди 20 тетрадей! Первый ждёт 12 секунд, второй уже гуляет — не попадайся ему на глаза.' : '20 тетрадей спрятаны в классах. E — открыть дверь, M — план школы. Котиков можно гладить: рыжий даёт энергию, полосатый — подсказку.', 7000);
 }
 $('start').addEventListener('click', start);
 $('restart').addEventListener('click', start);
 $('resume').addEventListener('click', () => {
   if (screen === 'paused') {
+    void enableAudio();
     screen = 'playing'; game.state = 'playing'; $('modal').hidden = true; keys.clear(); touch.setActive(true); void touch.requestLandscape(); void lock();
   } else start();
 });
@@ -90,6 +92,7 @@ $('home').addEventListener('click', () => {
 });
 function pause() {
   if (screen !== 'playing') return;
+  audio.stop();
   screen = 'paused'; game.state = 'paused'; keys.clear(); dragging = false; unlock(); touch.setActive(false);
   $('modal').hidden = false; $('modal-symbol').textContent = 'Ⅱ';
   $('modal-eyebrow').textContent = 'МОЖНО ВЫДОХНУТЬ'; $('modal-title').innerHTML = 'Перемена<br>на паузе.';
@@ -127,21 +130,21 @@ function confetti() {
 function use() {
   const result = interact(game);
   if (result === 'book') {
-    jingle('book'); $('count').textContent = String(game.collected.size); updateMap();
+    audio.effect('book'); jingle('book'); $('count').textContent = String(game.collected.size); updateMap();
     toast(game.collected.size === TOTAL ? `Все ${TOTAL} тетрадей собраны! Возвращайся к выходу — он отмечен на карте.` : game.collected.size === 1 ? 'Первая есть! В некоторых классах спрятано по две тетради.' : game.collected.size === 10 ? 'Половина уже у тебя. Продолжай поиски!' : `Тетрадей: ${game.collected.size} из ${TOTAL}. Проверь остальные классы!`, 4200);
     if (game.collected.size === TOTAL) { mapVisible = true; $('map-wrap').hidden = false; }
     hud();
   } else if (result === 'cat' || result === 'cat-rest') {
     toast(game.petMessage, 5000);
-    if (result === 'cat') { sound(280, 0.35, 0.035, 'triangle'); sound(210, 0.4, 0.025, 'sine', 0.15); }
+    audio.effect('cat');
     if (game.hintBook !== null && game.hintUntil > game.elapsed) { mapVisible = true; $('map-wrap').hidden = false; }
     updateMap(); hud();
   } else if (result === 'door-open' || result === 'door-close') {
-    sound(result === 'door-open' ? 210 : 160, 0.12, 0.025, 'triangle');
+    audio.effect(result);
     updateMap(); hud();
   } else if (result === 'door-blocked') toast('Отойди на шаг от порога, чтобы закрыть дверь.');
   else if (result === 'won') finish('won');
-  else if (result === 'locked') toast(`Для выхода нужно ещё ${TOTAL - game.collected.size} тетрадей. Найти их поможет карта.`);
+  else if (result === 'locked') { audio.effect('locked'); toast(`Для выхода нужно ещё ${TOTAL - game.collected.size} тетрадей. Найти их поможет карта.`); }
 }
 function toggleMap() { mapVisible = !mapVisible; $('map-wrap').hidden = !mapVisible; if (mapVisible) updateMap(); }
 $('map-toggle').addEventListener('click', toggleMap);
@@ -242,12 +245,32 @@ function frame(now) {
     const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') || touch.input.sprint;
     const input = { x: -Math.sin(yaw) * forward + Math.cos(yaw) * right, z: -Math.cos(yaw) * forward - Math.sin(yaw) * right, sprint };
     const previous = { ...game.player };
+    const oldPiles = game.poops.length, wasSlowed = game.slowed > 0;
+    const oldDoors = new Set(game.openedDoors);
     updateGame(game, dt, input);
+    const spatial = position => {
+      const dx = position.x - game.player.x, dz = position.z - game.player.z;
+      return [Math.max(0, 1 - Math.hypot(dx, dz) / 14) * 0.65, (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / 8];
+    };
+    if (!wasSlowed && game.slowed > 0) audio.effect('splat');
+    else if (game.poops.length > oldPiles) audio.effect('splat', ...spatial(game.dog));
+    for (const id of game.openedDoors) if (!oldDoors.has(id)) audio.effect('door-open', ...spatial(DOORS[id]));
+    if (game.elapsed >= petSoundAt) {
+      const pets = [...game.cats.map(cat => ({ ...cat, sound: 'cat' })), { ...game.dog, sound: 'dog' }];
+      const pet = pets.sort((a, b) => distance(a, game.player) - distance(b, game.player))[0];
+      audio.effect(pet.sound, ...spatial(pet)); petSoundAt = game.elapsed + 8 + Math.random() * 6;
+    }
+    rivalStep += dt;
+    if (rivalStep > 0.46) {
+      if (game.enemyMoving) audio.effect('step', ...spatial(game.enemy));
+      if (game.wanderer.moving) audio.effect('step', ...spatial(game.wanderer));
+      rivalStep = 0;
+    }
     const moved = distance(previous, game.player);
     walkPhase += moved * 4;
     if (moved > 0.002) {
       footTimer += dt;
-      if (footTimer > (sprint && !game.tired ? 0.29 : 0.45)) { sound(95 + Math.random() * 18, 0.08, 0.018, 'triangle'); footTimer = 0; }
+      if (footTimer > (sprint && !game.tired ? 0.29 : 0.45)) { audio.effect('step', sprint && !game.tired ? 1 : 0.8, stepSide * 0.14); stepSide *= -1; footTimer = 0; }
     }
     world.camera.fov += ((sprint && moved > 0.03 && !game.tired ? 73 : 68) - world.camera.fov) * Math.min(dt * 5, 1);
     world.camera.position.set(game.player.x, 1.6 + (reduced || moved < 0.002 ? 0 : Math.sin(walkPhase) * 0.025), game.player.z);
