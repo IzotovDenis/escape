@@ -5,21 +5,23 @@ export function createTouchControls({ isPlaying, turn, use }) {
   const knob = document.getElementById('joystick-knob');
   const sprintButton = document.getElementById('touch-sprint');
   const action = document.getElementById('touch-use');
+  const rotate = document.getElementById('rotate-screen');
   const canvas = document.getElementById('world');
   const input = { forward: 0, right: 0, sprint: false };
+  let sprintPointer = null;
   let movePointer = null, lookPointer = null, lookX = 0, lookY = 0;
   let enabled = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
   function enable() {
     enabled = true; document.body.classList.add('touch-device');
     document.querySelector('.keyboard-note').textContent = 'Левый палец — идти · правый — обзор';
-    document.querySelector('.modal-controls').textContent = 'Джойстик слева — идти · проведи справа — обзор. «Бег» включает ускорение, кнопка рядом открывает двери и собирает тетради.';
-    root.hidden = !isPlaying();
+    document.querySelector('.modal-controls').textContent = 'Джойстик слева — идти · проведи справа — обзор. Удерживай «Бег» для ускорения, кнопка рядом открывает двери и собирает тетради.';
+    root.hidden = !isPlaying(); syncRotation();
   }
   if (enabled) enable();
   addEventListener('pointerdown', event => { if (event.pointerType === 'touch' && !enabled) enable(); }, { capture: true });
   function reset() {
     input.forward = input.right = 0; input.sprint = false;
-    movePointer = lookPointer = null;
+    movePointer = lookPointer = sprintPointer = null;
     knob.style.transform = ''; stick.classList.remove('active');
     sprintButton.setAttribute('aria-pressed', 'false');
   }
@@ -54,18 +56,52 @@ export function createTouchControls({ isPlaying, turn, use }) {
     lookX = event.clientX; lookY = event.clientY;
   });
   for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.addEventListener(event, e => { if (e.pointerId === lookPointer) lookPointer = null; });
-  sprintButton.addEventListener('click', () => {
-    if (!isPlaying()) return;
-    input.sprint = !input.sprint; sprintButton.setAttribute('aria-pressed', String(input.sprint));
+  function sprint(active) {
+    input.sprint = active; sprintButton.setAttribute('aria-pressed', String(active));
+  }
+  sprintButton.addEventListener('pointerdown', event => {
+    if (!isPlaying() || sprintPointer !== null || event.button !== 0) return;
+    event.preventDefault(); sprintPointer = event.pointerId;
+    sprintButton.setPointerCapture(event.pointerId); sprint(true);
   });
-  action.addEventListener('click', () => { if (isPlaying()) use(); });
+  for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) sprintButton.addEventListener(event, e => {
+    if (e.pointerId !== sprintPointer) return;
+    sprintPointer = null; sprint(false);
+  });
+  sprintButton.addEventListener('keydown', event => {
+    if (!isPlaying() || !['Space', 'Enter'].includes(event.code)) return;
+    event.preventDefault(); sprint(true);
+  });
+  sprintButton.addEventListener('keyup', event => {
+    if (['Space', 'Enter'].includes(event.code)) { event.preventDefault(); sprint(false); }
+  });
+  sprintButton.addEventListener('blur', () => { if (sprintPointer === null) sprint(false); });
+  action.addEventListener('pointerdown', event => {
+    if (!isPlaying() || action.disabled || event.button !== 0) return;
+    event.preventDefault(); use();
+  });
+  action.addEventListener('click', event => { if (event.detail === 0 && isPlaying()) use(); });
+  function needsRotation() { return enabled && matchMedia('(orientation: portrait)').matches; }
+  function syncRotation() { rotate.hidden = !isPlaying() || !needsRotation(); }
+  async function requestLandscape() {
+    if (!enabled) return;
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch { /* Installed apps may lock orientation without fullscreen. */ }
+    try { await window.screen.orientation?.lock?.('landscape'); } catch { /* Safari uses the rotate prompt. */ }
+    syncRotation();
+  }
+  addEventListener('resize', syncRotation);
+  window.screen.orientation?.addEventListener('change', syncRotation);
   root.addEventListener('contextmenu', event => event.preventDefault());
   canvas.addEventListener('contextmenu', event => { if (enabled) event.preventDefault(); });
   addEventListener('blur', reset); addEventListener('resize', reset);
   document.addEventListener('visibilitychange', () => { if (document.hidden) reset(); });
   return {
-    input, get enabled() { return enabled; }, reset,
-    setActive(active) { reset(); root.hidden = !enabled || !active; },
+    input, get enabled() { return enabled; }, get needsRotation() { return needsRotation(); }, reset, requestLandscape,
+    setActive(active) { reset(); root.hidden = !enabled || !active; syncRotation(); },
     setAction(label, available) { action.textContent = label; action.disabled = !available; },
   };
 }

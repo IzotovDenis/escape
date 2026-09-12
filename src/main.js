@@ -38,6 +38,7 @@ updateSoundButton();
 $('fullscreen').addEventListener('click', async () => {
   try {
     if (document.fullscreenElement) await document.exitFullscreen();
+    else if (touch.enabled) await touch.requestLandscape();
     else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
     else throw new Error('not supported');
   } catch { if (screen === 'playing') toast('Полный экран недоступен. Можно играть в окне.'); }
@@ -71,15 +72,15 @@ function start() {
   reset(); screen = 'playing'; game.state = 'playing';
   $('welcome').hidden = true; $('hud').hidden = false; $('modal').hidden = true;
   document.body.classList.add('playing');
-  touch.setActive(true);
+  touch.setActive(true); void touch.requestLandscape();
   enableAudio(); jingle('start'); void lock();
-  toast(touch.enabled ? 'Слева — идти, справа — обзор. «Бег» ускоряет. Найди 20 тетрадей! У тебя 12 секунд форы.' : '20 тетрадей спрятаны в классах. E — открыть дверь, M — план школы. У тебя 12 секунд форы!', 7000);
+  toast(touch.enabled ? 'Слева — идти, справа — обзор. Удерживай «Бег», чтобы ускориться. Найди 20 тетрадей! У тебя 12 секунд форы.' : '20 тетрадей спрятаны в классах. E — открыть дверь, M — план школы. У тебя 12 секунд форы!', 7000);
 }
 $('start').addEventListener('click', start);
 $('restart').addEventListener('click', start);
 $('resume').addEventListener('click', () => {
   if (screen === 'paused') {
-    screen = 'playing'; game.state = 'playing'; $('modal').hidden = true; keys.clear(); touch.setActive(true); void lock();
+    screen = 'playing'; game.state = 'playing'; $('modal').hidden = true; keys.clear(); touch.setActive(true); void touch.requestLandscape(); void lock();
   } else start();
 });
 $('home').addEventListener('click', () => {
@@ -215,7 +216,7 @@ function hud() {
 
 function frame(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.05); lastTime = now;
-  if (screen === 'playing') {
+  if (screen === 'playing' && !touch.needsRotation) {
     const forward = Number(keys.has('KeyW') || keys.has('ArrowUp')) - Number(keys.has('KeyS') || keys.has('ArrowDown')) + touch.input.forward;
     const right = Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + touch.input.right;
     yaw += (Number(keys.has('ArrowLeft')) - Number(keys.has('ArrowRight'))) * dt * 1.65;

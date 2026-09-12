@@ -63,7 +63,12 @@
     <div id="touch-controls" class="touch-controls" aria-label="Сенсорное управление" hidden>
       <div id="joystick" class="joystick" role="group" aria-label="Джойстик движения"><span class="joystick-guide" aria-hidden="true">↑</span><span id="joystick-knob"></span><span class="joystick-label">ИДТИ</span></div>
       <div class="touch-look-hint" aria-hidden="true">Проведи справа — обзор</div>
-      <div class="touch-actions"><button id="touch-sprint" aria-pressed="false">ϟ Бег</button><button id="touch-use" disabled>Действие</button></div>
+      <div class="touch-actions"><button id="touch-sprint" aria-label="Бег — удерживай" aria-pressed="false">ϟ Бег</button><button id="touch-use" disabled>Действие</button></div>
+    </div>
+    <div id="rotate-screen" class="rotate-screen" role="status" hidden>
+      <span aria-hidden="true">↻</span><strong>Поверни телефон</strong>
+      <p>Играй горизонтально — так удобнее управлять двумя руками.</p>
+      <small>Если экран не поворачивается, отключи блокировку ориентации на телефоне. Игра подождёт.</small>
     </div>
     <section id="modal" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="modal-title">
       <div class="modal-card"><span id="modal-symbol" class="modal-symbol">Ⅱ</span><div id="modal-eyebrow" class="eyebrow">МОЖНО ВЫДОХНУТЬ</div><h2 id="modal-title">Перемена<br>на паузе.</h2><p id="modal-description">Школа подождёт. Продолжим, когда будешь готов.</p><div id="result-stats" class="result-stats" hidden></div><button id="resume" class="primary"><span>Продолжить</span><span>→</span></button><button id="restart" class="secondary">Начать заново</button><button id="home" class="text-button">В главное меню</button><p class="modal-controls">WASD — идти · Shift — бежать · E — двери и тетради<br>Мышь или ← → — обзор · M — карта</p></div>
