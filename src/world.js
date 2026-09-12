@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { CELL, SIZE, open, at, BOOKS, EXIT, SPAWN, TOTAL, ROOMS, DOORS } from './game.js';
+import { CELL, SIZE, open, at, BOOKS, EXIT, SPAWN, TOTAL, ROOMS, DOORS, CATS, DOG } from './game.js';
 
 export async function createWorld(canvas) {
   const mobile = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.25 : 1.7));
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 1.7));
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -207,10 +207,11 @@ export async function createWorld(canvas) {
   });
 
   const loader = new THREE.TextureLoader();
-  const [spriteTexture, idleTexture] = await Promise.all([
-    loader.loadAsync(`${import.meta.env.BASE_URL}assets/runner-sheet.png`), loader.loadAsync(`${import.meta.env.BASE_URL}assets/runner-idle.png`)
+  const [spriteTexture, idleTexture, redTexture, redBackTexture] = await Promise.all([
+    loader.loadAsync(`${import.meta.env.BASE_URL}assets/runner-sheet.png`), loader.loadAsync(`${import.meta.env.BASE_URL}assets/runner-idle.png`),
+    loader.loadAsync(`${import.meta.env.BASE_URL}assets/red-runner-sheet.png`), loader.loadAsync(`${import.meta.env.BASE_URL}assets/red-runner-back-sheet.png`)
   ]);
-  for (const texture of [spriteTexture, idleTexture]) {
+  for (const texture of [spriteTexture, idleTexture, redTexture, redBackTexture]) {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.minFilter = THREE.LinearFilter; texture.magFilter = THREE.LinearFilter;
     texture.generateMipmaps = false;
@@ -244,8 +245,58 @@ export async function createWorld(canvas) {
   }));
   shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.024; scene.add(shadow);
 
+  const redMaterial = spriteMaterial.clone();
+  redMaterial.uniforms.sheet.value = redTexture;
+  redMaterial.uniforms.isIdle.value = 0;
+  const wanderer = new THREE.Mesh(runner.geometry, redMaterial);
+  scene.add(wanderer);
+  const redShadow = shadow.clone(); scene.add(redShadow);
+
+  const petTexture = await loader.loadAsync(`${import.meta.env.BASE_URL}assets/pets-sheet.png`);
+  petTexture.colorSpace = THREE.SRGBColorSpace;
+  petTexture.minFilter = THREE.LinearFilter; petTexture.generateMipmaps = false;
+  function petSprite(frame, position, size) {
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { sheet: { value: petTexture }, frame: { value: frame } },
+      transparent: true, side: THREE.DoubleSide,
+      vertexShader: `varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+      fragmentShader: `uniform sampler2D sheet; uniform float frame; varying vec2 vUv;
+        void main(){
+          vec2 uv=(vec2(mod(frame,2.0),1.0-floor(frame/2.0))+clamp(vUv,0.006,0.994))/2.0;
+          vec4 c=texture2D(sheet,uv);
+          float a=c.a*(1.0-smoothstep(0.10,0.34,c.g-max(c.r,c.b)));
+          if(a<0.45) discard;
+          c.g=min(c.g,max(c.r,c.b)+0.025);
+          gl_FragColor=vec4(c.rgb,a);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`,
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
+    mesh.position.set(position.x, size * 0.47, position.z); scene.add(mesh);
+    const groundShadow = shadow.clone(); groundShadow.scale.set(0.65, 0.7, 1);
+    groundShadow.position.set(position.x, 0.025, position.z); scene.add(groundShadow);
+    return mesh;
+  }
+  const cats = CATS.map(cat => petSprite(cat.id, cat, 1.15));
+  const dog = petSprite(2, DOG, 1.5);
+  const poopMesh = new THREE.Group();
+  const poopGeometry = new THREE.SphereGeometry(1, 10, 6);
+  for (const [x, y, radius] of [[0, 0.10, 0.23], [0.02, 0.23, 0.16], [0.05, 0.33, 0.09]]) {
+    const piece = new THREE.Mesh(poopGeometry, material('#765035'));
+    piece.position.set(x, y, 0); piece.scale.set(radius, radius * 0.7, radius * 0.8); poopMesh.add(piece);
+  }
+  scene.add(poopMesh);
+
   function render(time, game, intro = false, reduced = false) {
     resize();
+    for (const pet of [...cats, dog]) {
+      pet.rotation.y = Math.atan2(camera.position.x - pet.position.x, camera.position.z - pet.position.z);
+    }
+    dog.material.uniforms.frame.value = game.dog.phase === 'squatting' ? 3 : 2;
+    dog.position.y = 1.5 * 0.47 + (!reduced && game.dog.phase === 'squatting' ? Math.sin(time * 9) * 0.012 : 0);
+    poopMesh.visible = !intro && game.poops.length > 0;
+    if (game.poops[0]) poopMesh.position.set(game.poops[0].x, 0, game.poops[0].z);
     const running = !intro && game.state === 'playing' && game.enemyMoving;
     spriteMaterial.uniforms.isIdle.value = running ? 0 : 1;
     runner.userData.pose = running ? 'running' : 'idle';
@@ -271,6 +322,15 @@ export async function createWorld(canvas) {
     }
     runner.rotation.y = Math.atan2(camera.position.x - runner.position.x, camera.position.z - runner.position.z);
     shadow.position.x = runner.position.x; shadow.position.z = runner.position.z;
+    const npc = game.wanderer, facing = npc.facing || { x: 0, z: -1 };
+    wanderer.visible = redShadow.visible = !intro;
+    wanderer.position.set(npc.x, 1.14 + (reduced || !npc.moving ? 0 : Math.sin(npc.travel * 6) * 0.015), npc.z);
+    wanderer.rotation.y = Math.atan2(camera.position.x - npc.x, camera.position.z - npc.z);
+    const back = (camera.position.x - npc.x) * facing.x + (camera.position.z - npc.z) * facing.z < 0;
+    redMaterial.uniforms.sheet.value = back ? redBackTexture : redTexture;
+    redMaterial.uniforms.frame.value = Math.floor(npc.travel * 4.5) % 8;
+    wanderer.userData.view = back ? 'back' : 'front';
+    redShadow.position.set(npc.x, 0.024, npc.z);
     exitHalo.material.color.set(game.collected.size === TOTAL ? '#64efb9' : '#d2b778');
     camera.updateProjectionMatrix(); renderer.render(scene, camera);
   }
@@ -287,5 +347,5 @@ export async function createWorld(canvas) {
     camera.updateProjectionMatrix();
   }
   resize();
-  return { renderer, scene, camera, runner, render, bookMeshes, resize };
+  return { renderer, scene, camera, runner, wanderer, render, bookMeshes, resize };
 }

@@ -132,3 +132,90 @@ test('Analog movement preserves partial stick speed and clamps diagonal input', 
   assert.ok(Math.abs(simulate(1, -1) - full) < 1e-8);
   assert.equal(simulate(0, 0), 0);
 });
+
+test('Wanderer walks immediately while the first pursuer waits', () => {
+  const game = newGame(), start = { ...game.wanderer };
+  updateGame(game, 0.05, { x: 0, z: 0 });
+  assert.ok(distance(start, game.wanderer) > 0);
+  assert.equal(game.enemyMoving, false);
+  assert.equal(game.wanderer.state, 'wandering');
+});
+
+test('Wanderer sees only ahead, loses sight at walls and cannot catch from behind', async () => {
+  const { wandererSeesPlayer, updateWanderer } = await import('./game.js');
+  const game = newGame(), npc = game.wanderer;
+  Object.assign(npc, at(16, 20), { facing: { x: 0, z: -1 } });
+  game.player = at(16, 18);
+  assert.equal(wandererSeesPlayer(game), true);
+  updateWanderer(game, 0.05); assert.equal(npc.state, 'chasing');
+  game.player = { x: npc.x, z: npc.z + 0.4 };
+  assert.equal(wandererSeesPlayer(game), false);
+  updateWanderer(game, 0.01); assert.equal(game.state, 'playing'); assert.equal(npc.state, 'wandering');
+  Object.assign(npc, at(16, 20), { facing: { x: 1, z: 0 } });
+  game.player = at(19, 20);
+  assert.equal(wandererSeesPlayer(game), false);
+  Object.assign(npc, at(16, 20), { facing: { x: 0, z: -1 } });
+  game.player = { x: npc.x, z: npc.z - 0.5 };
+  updateWanderer(game, 0.01); assert.equal(game.state, 'caught');
+});
+
+test('Wanderer patrol stays in corridors and reverses only after its timer', async () => {
+  const { updateWanderer, roomAt, doorAt } = await import('./game.js');
+  const game = newGame(), npc = game.wanderer;
+  game.player = { ...BOOKS[0] };
+  Object.assign(npc, at(16, 20), { previous: at(16, 21), turnIn: 0, facing: { x: 0, z: -1 } });
+  updateWanderer(game, 0.05);
+  assert.ok(npc.facing.z > 0.9); assert.ok(npc.turnIn >= 14);
+  for (let i = 0; i < 5000; i++) {
+    updateWanderer(game, 0.05);
+    assert.ok(canStand(npc.x, npc.z, 0.28, game.openedDoors));
+    assert.equal(roomAt(npc), undefined); assert.equal(doorAt(npc), undefined);
+  }
+  assert.ok(npc.travel > 300);
+});
+
+test('Wanderer leaves a classroom after losing sight through an open doorway', async () => {
+  const { updateWanderer, roomAt } = await import('./game.js');
+  const game = newGame(), npc = game.wanderer;
+  Object.assign(npc, BOOKS[0]);
+  game.openedDoors.add(DOORS[0].id);
+  for (let i = 0; i < 400; i++) updateWanderer(game, 0.05);
+  assert.equal(roomAt(npc), undefined);
+  assert.ok(canStand(npc.x, npc.z, 0.28, game.openedDoors));
+});
+
+test('Cats restore energy with a cooldown and hint at an uncollected notebook', async () => {
+  const { CATS } = await import('./game.js');
+  const game = newGame();
+  game.player = { ...CATS[0] }; game.stamina = 0.1; game.tired = true;
+  assert.equal(interact(game), 'cat');
+  assert.equal(game.stamina, 1); assert.equal(game.tired, false);
+  game.stamina = 0.4;
+  assert.equal(interact(game), 'cat-rest'); assert.equal(game.stamina, 0.4);
+  game.elapsed = 25;
+  assert.equal(interact(game), 'cat'); assert.equal(game.stamina, 1);
+  game.player = { ...CATS[1] };
+  game.collected.add(0);
+  assert.equal(interact(game), 'cat');
+  assert.ok(BOOKS.some(b => b.id === game.hintBook));
+  assert.ok(!game.collected.has(game.hintBook));
+  game.elapsed += 25; game.collected = new Set(BOOKS.map(b => b.id));
+  assert.equal(interact(game), 'cat'); assert.equal(game.hintBook, null);
+});
+
+test('Dog squats before leaving a pile; stepping on it slows movement briefly', async () => {
+  const { updatePets } = await import('./game.js');
+  const game = newGame();
+  updatePets(game, 5); assert.equal(game.dog.phase, 'squatting'); assert.equal(game.poops.length, 0);
+  updatePets(game, 2.5); assert.equal(game.dog.phase, 'idle'); assert.equal(game.poops.length, 1);
+  game.player = { ...game.poops[0] };
+  updatePets(game, 0.01); assert.equal(game.poops.length, 0); assert.equal(game.slowed, 2.5);
+  const other = newGame(); other.player = { ...game.player };
+  const start = { ...game.player };
+  updateGame(game, 0.05, { x: 0, z: -1 }); updateGame(other, 0.05, { x: 0, z: -1 });
+  assert.ok(Math.abs(distance(start, game.player) * 2 - distance(start, other.player)) < 0.001);
+  updatePets(game, 2.5); assert.equal(game.slowed, 0);
+  game.state = 'paused'; const timer = game.dog.timer;
+  updateGame(game, 0.05, { x: 0, z: 0 }); assert.equal(game.dog.timer, timer);
+  const fresh = newGame(); assert.equal(fresh.poops.length, 0); assert.equal(fresh.slowed, 0); assert.deepEqual(fresh.catReadyAt, [0, 0]);
+});

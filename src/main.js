@@ -2,7 +2,7 @@ import './style.css';
 import './pwa.js';
 import { createTouchControls } from './touch.js';
 import { createWorld } from './world.js';
-import { grid, SIZE, CELL, ORIGIN, DOORS, EXIT, TOTAL, newGame, updateGame, interact, nearby, nearbyDoor, roomAt, distance, tile, formatTime } from './game.js';
+import { grid, SIZE, CELL, ORIGIN, DOORS, EXIT, TOTAL, CATS, BOOKS, nearbyCat, newGame, updateGame, interact, nearby, nearbyDoor, roomAt, distance, tile, formatTime } from './game.js';
 
 const $ = id => document.getElementById(id);
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -74,7 +74,7 @@ function start() {
   document.body.classList.add('playing');
   touch.setActive(true); void touch.requestLandscape();
   enableAudio(); jingle('start'); void lock();
-  toast(touch.enabled ? 'Слева — идти, справа — обзор. Удерживай «Бег», чтобы ускориться. Найди 20 тетрадей! У тебя 12 секунд форы.' : '20 тетрадей спрятаны в классах. E — открыть дверь, M — план школы. У тебя 12 секунд форы!', 7000);
+  toast(touch.enabled ? 'Слева — идти, справа — обзор. Удерживай «Бег», чтобы ускориться. Найди 20 тетрадей! Первый ждёт 12 секунд, второй уже гуляет — не попадайся ему на глаза.' : '20 тетрадей спрятаны в классах. E — открыть дверь, M — план школы. Котиков можно гладить: рыжий даёт энергию, полосатый — подсказку.', 7000);
 }
 $('start').addEventListener('click', start);
 $('restart').addEventListener('click', start);
@@ -131,6 +131,11 @@ function use() {
     toast(game.collected.size === TOTAL ? `Все ${TOTAL} тетрадей собраны! Возвращайся к выходу — он отмечен на карте.` : game.collected.size === 1 ? 'Первая есть! В некоторых классах спрятано по две тетради.' : game.collected.size === 10 ? 'Половина уже у тебя. Продолжай поиски!' : `Тетрадей: ${game.collected.size} из ${TOTAL}. Проверь остальные классы!`, 4200);
     if (game.collected.size === TOTAL) { mapVisible = true; $('map-wrap').hidden = false; }
     hud();
+  } else if (result === 'cat' || result === 'cat-rest') {
+    toast(game.petMessage, 5000);
+    if (result === 'cat') { sound(280, 0.35, 0.035, 'triangle'); sound(210, 0.4, 0.025, 'sine', 0.15); }
+    if (game.hintBook !== null && game.hintUntil > game.elapsed) { mapVisible = true; $('map-wrap').hidden = false; }
+    updateMap(); hud();
   } else if (result === 'door-open' || result === 'door-close') {
     sound(result === 'door-open' ? 210 : 160, 0.12, 0.025, 'triangle');
     updateMap(); hud();
@@ -189,6 +194,15 @@ function updateMap() {
     const isOpen = game.openedDoors.has(door.id);
     svg += `<rect x="${door.tx * 10 + (door.axis === 'x' ? 3 : 0)}" y="${door.tz * 10 + (door.axis === 'z' ? 3 : 0)}" width="${door.axis === 'x' ? 4 : 10}" height="${door.axis === 'z' ? 4 : 10}" fill="${isOpen ? '#91bcb0' : '#e6bb7c'}"/>`;
   }
+  for (const cat of CATS) {
+    const t = tile(cat);
+    svg += `<circle cx="${t.x * 10 + 5}" cy="${t.z * 10 + 5}" r="3" fill="#ffd19b"><title>${cat.name}</title></circle>`;
+  }
+  const hinted = game.hintUntil > game.elapsed && BOOKS.find(b => b.id === game.hintBook && !game.collected.has(b.id));
+  if (hinted) {
+    const t = tile(hinted);
+    svg += `<circle cx="${t.x * 10 + 5}" cy="${t.z * 10 + 5}" r="6" fill="#d8b1ff" stroke="white" stroke-width="1.5"><title>Тетрадь — подсказка котика</title></circle>`;
+  }
   const exit = tile(EXIT);
   svg += `<rect x="${exit.x * 10 + 1}" y="${exit.z * 10 + 1}" width="8" height="8" rx="2" fill="#7ce0be"/><g id="map-player"><circle r="4" fill="white"/><path d="M-3-5 0-10 3-5" fill="white" opacity=".75"/></g>`;
   $('minimap').innerHTML = svg;
@@ -199,17 +213,17 @@ function hud() {
   $('stamina-bar').style.transform = `scaleX(${game.stamina})`;
   $('stamina-bar').style.background = game.stamina < 0.25 ? '#efa786' : '#efd19c';
   $('stamina-label').textContent = `${Math.round(game.stamina * 100)}%`;
-  const d = distance(game.player, game.enemy);
-  $('chase-label').textContent = game.grace > 0 ? `Фора: ещё ${Math.ceil(game.grace)} сек.` : game.tired ? 'Переведи дух — энергия вернётся' : d < 5 ? 'Уже близко! Самое время ускориться' : d < 12 ? 'Соперник где-то неподалёку' : 'Отличный отрыв. Ищи тетради!';
+  const d = Math.min(game.grace > 0 ? Infinity : distance(game.player, game.enemy), game.wanderer.state === 'chasing' ? distance(game.player, game.wanderer) : Infinity);
+  $('chase-label').textContent = game.slowed > 0 ? 'Ой, наступил! Обойди собачий сюрприз' : game.wanderer.state === 'chasing' ? 'Тебя заметили! Скройся за поворотом' : game.grace > 0 ? `Первый ждёт: ${Math.ceil(game.grace)} сек. Второй гуляет` : game.tired ? 'Переведи дух — энергия вернётся' : d < 5 ? 'Уже близко! Самое время ускориться' : d < 12 ? 'Соперник где-то неподалёку' : 'Отличный отрыв. Ищи тетради!';
   $('danger').style.boxShadow = `inset 0 0 100px 25px rgba(238,183,107,${Math.max(0, 1 - d / 6) * 0.24})`;
-  const book = nearby(game), door = nearbyDoor(game), exit = distance(game.player, EXIT) < 2;
-  touch.setAction(book ? 'Взять' : door ? game.openedDoors.has(door.id) ? 'Закрыть' : 'Открыть' : exit ? 'Выход' : 'Действие', !!(book || door || exit));
-  $('interaction').hidden = !book && !door && !exit;
-  if (book || door || exit) $('interaction').lastElementChild.textContent = book ? 'Взять тетрадь' : door ? `${game.openedDoors.has(door.id) ? 'Закрыть' : 'Открыть'} · ${door.name}` : game.collected.size === TOTAL ? 'Выйти из школы' : `Выход · нужны ${TOTAL} тетрадей`;
+  const book = nearby(game), cat = nearbyCat(game), door = nearbyDoor(game), exit = distance(game.player, EXIT) < 2;
+  touch.setAction(book ? 'Взять' : cat ? 'Погладить' : door ? game.openedDoors.has(door.id) ? 'Закрыть' : 'Открыть' : exit ? 'Выход' : 'Действие', !!(book || cat || door || exit));
+  $('interaction').hidden = !book && !cat && !door && !exit;
+  if (book || cat || door || exit) $('interaction').lastElementChild.textContent = book ? 'Взять тетрадь' : cat ? `Погладить · ${cat.name} · ${cat.power === 'energy' ? 'энергия' : 'подсказка'}` : door ? `${game.openedDoors.has(door.id) ? 'Закрыть' : 'Открыть'} · ${door.name}` : game.collected.size === TOTAL ? 'Выйти из школы' : `Выход · нужны ${TOTAL} тетрадей`;
   const t = tile(game.player);
   const room = roomAt(game.player);
   $('location').textContent = room ? `${String(room.id + 1).padStart(2, '0')} · ${room.name}` : t.x === 15 || t.x === 16 ? 'Главный коридор' : ['Северное крыло', 'Крыло открытий', 'Творческое крыло', 'Южное крыло'][Math.min(3, Math.floor(t.z / 8))];
-  const signature = [...game.openedDoors].join(',');
+  const signature = [...game.openedDoors].join(',') + ':' + (game.hintUntil > game.elapsed ? game.hintBook : 'none') + ':' + game.collected.size;
   if (signature !== mapSignature) { mapSignature = signature; updateMap(); }
   if (mapVisible) $('map-player')?.setAttribute('transform', `translate(${(game.player.x / CELL + ORIGIN) * 10 + 5},${(game.player.z / CELL + ORIGIN) * 10 + 5}) rotate(${-yaw * 180 / Math.PI})`);
 }
@@ -248,7 +262,7 @@ try {
   updateMap(); requestAnimationFrame(frame);
   if (import.meta.env.DEV) {
     // Read-only diagnostics for local QA; omitted from production builds.
-    window.__PEREMENA__ = () => ({ state: screen, yaw, pitch, touch: { ...touch.input }, player: { ...game.player }, enemy: { ...game.enemy }, count: game.collected.size, pose: world.runner.userData.pose, openedDoors: [...game.openedDoors], stamina: game.stamina, elapsed: game.elapsed, mode: game.mode, frame: world.renderer.info.render.frame, calls: world.renderer.info.render.calls, triangles: world.renderer.info.render.triangles, pointerLocked: !!document.pointerLockElement });
+    window.__PEREMENA__ = () => ({ state: screen, yaw, pitch, touch: { ...touch.input }, player: { ...game.player }, enemy: { ...game.enemy }, wanderer: { ...game.wanderer, view: world.wanderer.userData.view }, pixelRatio: world.renderer.getPixelRatio(), count: game.collected.size, pose: world.runner.userData.pose, openedDoors: [...game.openedDoors], stamina: game.stamina, elapsed: game.elapsed, mode: game.mode, frame: world.renderer.info.render.frame, calls: world.renderer.info.render.calls, triangles: world.renderer.info.render.triangles, pointerLocked: !!document.pointerLockElement });
   }
 } catch (error) {
   console.error('School initialization failed:', error);

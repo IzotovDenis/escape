@@ -30,7 +30,13 @@ export const doorAt = p => { const t = tile(p); return doorTiles.get(t.z * SIZE 
 export const roomAt = p => { const t = tile(p); return ROOMS.find(r => t.x >= r.x && t.x <= r.x + 2 && t.z >= r.z && t.z <= r.z + 2); };
 export const SPAWN = at(16, 29);
 export const ENEMY_SPAWN = at(16, 16);
+export const WANDERER_SPAWN = at(8, 22);
 export const EXIT = at(16, 30);
+export const CATS = [
+  { ...at(15, 28), id: 0, name: 'Рыжик', power: 'energy' },
+  { ...at(16, 24), id: 1, name: 'Полосатик', power: 'hint' },
+];
+export const DOG = at(15, 26);
 export const BOOKS = [
   ...ROOMS.map(room => ({ ...at(room.cx, room.cz), roomId: room.id })),
   ...[3, 6, 9, 12].map(id => { const room = ROOMS[id], center = at(room.cx, room.cz); return { x: center.x + 2.2, z: center.z - 2.1, roomId: id }; })
@@ -60,7 +66,7 @@ export function move(body, dx, dz, openedDoors = null) {
   }
 }
 
-export function route(from, to) {
+export function route(from, to, openedDoors = null) {
   const start = tile(from), goal = tile(to);
   if (!open(start.x, start.z) || !open(goal.x, goal.z)) return [];
   const key = ({ x, z }) => z * SIZE + x;
@@ -75,7 +81,8 @@ export function route(from, to) {
     }
     for (const [dx, dz] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
       const next = { x: current.x + dx, z: current.z + dz };
-      if (open(next.x, next.z) && !parents.has(key(next))) { parents.set(key(next), current); queue.push(next); }
+      const door = doorTiles.get(key(next));
+      if (open(next.x, next.z) && (!openedDoors || !door || openedDoors.has(door.id)) && !parents.has(key(next))) { parents.set(key(next), current); queue.push(next); }
     }
   }
   return [];
@@ -91,7 +98,62 @@ export function visible(a, b, openedDoors = null) {
 }
 
 export function newGame(mode = 'easy') {
-  return { player: { ...SPAWN }, enemy: { ...ENEMY_SPAWN }, collected: new Set(), openedDoors: new Set(), visitedRooms: new Set(), doorWait: null, stamina: 1, tired: false, elapsed: 0, mode, state: 'playing', grace: 12, path: [], pathAge: 1, enemyTravel: 0, enemyMoving: false };
+  return { catReadyAt: [0, 0], petMessage: null, hintBook: null, hintUntil: 0, dog: { phase: 'idle', timer: 5 }, poops: [], slowed: 0, player: { ...SPAWN }, enemy: { ...ENEMY_SPAWN }, wanderer: { ...WANDERER_SPAWN, state: 'wandering', path: [], previous: null, travel: 0, moving: false }, collected: new Set(), openedDoors: new Set(), visitedRooms: new Set(), doorWait: null, stamina: 1, tired: false, elapsed: 0, mode, state: 'playing', grace: 12, path: [], pathAge: 1, enemyTravel: 0, enemyMoving: false };
+}
+
+const corridor = p => !roomAt(p) && !doorAt(p) && open(tile(p).x, tile(p).z);
+
+export function wandererSeesPlayer(game) {
+  const npc = game.wanderer, d = distance(npc, game.player);
+  const facing = npc.facing || { x: 0, z: -1 };
+  const dot = ((game.player.x - npc.x) * facing.x + (game.player.z - npc.z) * facing.z) / Math.max(d, 0.001);
+  return d < 22 && dot >= 0.5 && visible(npc, game.player, game.openedDoors);
+}
+
+export function updateWanderer(game, dt) {
+  const npc = game.wanderer;
+  npc.moving = false;
+  npc.facing ??= { x: 0, z: -1 };
+  npc.turnIn ??= 14 + Math.random() * 16;
+  const seesPlayer = wandererSeesPlayer(game);
+  const nextState = seesPlayer ? 'chasing' : 'wandering';
+  if (npc.state !== nextState) { npc.path = []; npc.state = nextState; }
+  let target;
+  if (seesPlayer) target = game.player;
+  else {
+    npc.turnIn -= dt;
+    while (npc.path.length && distance(npc, npc.path[0]) < 0.05) npc.path.shift();
+    if (!npc.path.length) {
+      const cell = tile(npc), center = at(cell.x, cell.z);
+      if (distance(npc, center) > 0.05) npc.path = [center];
+      else if (corridor(npc)) {
+        const options = [[0, -1], [1, 0], [0, 1], [-1, 0]].map(([x, z]) => at(cell.x + x, cell.z + z)).filter(corridor);
+        const forward = options.filter(p => !npc.previous || distance(p, npc.previous) > 0.1);
+        const reverse = options.filter(p => npc.previous && distance(p, npc.previous) < 0.1);
+        const choices = npc.turnIn <= 0 && reverse.length ? reverse : forward.length ? forward : options;
+        if (npc.turnIn <= 0) npc.turnIn = 14 + Math.random() * 16;
+        if (choices.length) npc.path = [choices[Math.floor(Math.random() * choices.length)]];
+        npc.previous = center;
+      } else {
+        // After losing the player in a classroom, return through an open door.
+        const exits = DOORS.filter(d => game.openedDoors.has(d.id)).map(d => at(d.tx + (d.axis === 'x' ? 1 : 0), d.tz + (d.axis === 'z' ? 1 : 0))).sort((a, b) => distance(npc, a) - distance(npc, b));
+        for (const exit of exits) { const path = route(npc, exit, game.openedDoors); if (path.length) { npc.path = path; break; } }
+      }
+    }
+    target = npc.path[0];
+  }
+  if (target) {
+    const d = distance(npc, target), speed = seesPlayer ? (game.mode === 'easy' ? 2.65 : 3.15) : 1.55;
+    if (d > 0.001) {
+      const before = { x: npc.x, z: npc.z }, step = Math.min(d, speed * dt);
+      move(npc, (target.x - npc.x) / d * step, (target.z - npc.z) / d * step, game.openedDoors);
+      const travelled = distance(before, npc);
+      if (travelled > 0.0001) npc.facing = { x: (npc.x - before.x) / travelled, z: (npc.z - before.z) / travelled };
+      npc.travel += travelled; npc.moving = travelled > 0.0001;
+      if (!npc.moving && dt > 0) npc.path = [];
+    }
+  }
+  if (seesPlayer && distance(npc, game.player) < 0.82) game.state = 'caught';
 }
 
 export function updateGame(game, dt, input) {
@@ -99,17 +161,20 @@ export function updateGame(game, dt, input) {
   game.enemyMoving = false;
   dt = Math.min(Math.max(dt, 0), 0.05);
   game.elapsed += dt;
+  updatePets(game, dt);
   game.grace = Math.max(0, game.grace - dt);
   const moving = Math.hypot(input.x, input.z) > 0;
   if (game.tired && game.stamina >= 0.28) game.tired = false;
   const sprint = moving && input.sprint && !game.tired && game.stamina > 0;
-  const speed = sprint ? 6 : 3.45;
+  const speed = (sprint ? 6 : 3.45) * (game.slowed > 0 ? 0.5 : 1);
   const len = Math.max(1, Math.hypot(input.x, input.z));
   move(game.player, input.x / len * speed * dt, input.z / len * speed * dt, game.openedDoors);
   const room = roomAt(game.player);
   if (room) game.visitedRooms.add(room.id);
   game.stamina = Math.max(0, Math.min(1, game.stamina + dt * (sprint ? -0.18 : moving ? 0.1 : 0.22)));
   if (game.stamina === 0) game.tired = true;
+  updateWanderer(game, dt);
+  if (game.state !== 'playing') return;
   if (game.grace > 0) return;
   const enemySpeed = (game.mode === 'easy' ? 2.2 : 2.85) + game.collected.size * 0.025;
   if (game.doorWait) {
@@ -160,10 +225,27 @@ export function interact(game) {
   if (game.state !== 'playing') return null;
   const book = nearby(game);
   if (book) { game.collected.add(book.id); game.stamina = Math.min(1, game.stamina + 0.35); return 'book'; }
+  const cat = nearbyCat(game);
+  if (cat) {
+    if (game.catReadyAt[cat.id] > game.elapsed) {
+      game.petMessage = `${cat.name} мурчит. Снова поможет через ${Math.ceil(game.catReadyAt[cat.id] - game.elapsed)} сек.`;
+      return 'cat-rest';
+    }
+    game.catReadyAt[cat.id] = game.elapsed + 25;
+    if (cat.power === 'energy') {
+      game.stamina = 1; game.tired = false;
+      game.petMessage = 'Мур-р! Рыжик восстановил всю энергию.';
+    } else {
+      const book = BOOKS.filter(b => !game.collected.has(b.id)).sort((a, b) => distance(game.player, a) - distance(game.player, b))[0];
+      game.hintBook = book?.id ?? null; game.hintUntil = game.elapsed + 20;
+      game.petMessage = book ? `Полосатик подсказывает: ${ROOMS[book.roomId].name}. Тетрадь отмечена на карте на 20 секунд!` : 'Полосатик мурчит: всё собрано, пора к выходу!';
+    }
+    return 'cat';
+  }
   const door = nearbyDoor(game);
   if (door) {
     if (game.openedDoors.has(door.id)) {
-      if (distance(game.player, door) < 1.95 || distance(game.enemy, door) < 1.95) return 'door-blocked';
+      if (distance(game.player, door) < 1.95 || distance(game.enemy, door) < 1.95 || distance(game.wanderer, door) < 1.95) return 'door-blocked';
       game.openedDoors.delete(door.id); return 'door-close';
     }
     game.openedDoors.add(door.id); return 'door-open';
@@ -176,3 +258,28 @@ export function interact(game) {
 }
 
 export const formatTime = seconds => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+
+
+export const nearbyCat = game => CATS.filter(cat => distance(game.player, cat) < 2.1 && visible(game.player, cat, game.openedDoors)).sort((a, b) => distance(game.player, a) - distance(game.player, b))[0];
+
+export function updatePets(game, dt) {
+  game.slowed = Math.max(0, game.slowed - dt);
+  game.dog.timer -= dt;
+  if (game.dog.timer <= 0) {
+    if (game.dog.phase === 'idle') {
+      game.dog.phase = 'squatting'; game.dog.timer = 2.5;
+    } else {
+      game.dog.phase = 'idle'; game.dog.timer = 16;
+      // Keep one fresh pile at the dog's feet; old piles disappear.
+      game.poops = [{ x: DOG.x - 0.65, z: DOG.z + 0.45, remaining: 14 }];
+    }
+  }
+  game.poops = game.poops.filter(poop => {
+    poop.remaining -= dt;
+    if (distance(game.player, poop) < 0.65) {
+      game.slowed = 2.5;
+      return false;
+    }
+    return poop.remaining > 0;
+  });
+}

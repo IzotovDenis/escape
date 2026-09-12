@@ -52,7 +52,7 @@
     <section id="hud" class="hud" aria-label="Игровая информация" hidden>
       <div class="objectives"><div class="notebook-icon" aria-hidden="true">▤</div><div><span class="hud-label">ТЕТРАДИ</span><strong><span id="count">0</span><span class="count-total"> / 20</span></strong></div><div class="hud-separator"></div><div><span class="hud-label">ПРОШЛО</span><strong id="timer">00:00</strong></div></div>
       <div class="location-pill"><span class="live-dot"></span><span id="location">Главный коридор</span></div>
-      <div id="map-wrap" class="map-wrap" hidden><div class="map-heading">ПЛАН ШКОЛЫ <span>M</span></div><svg id="minimap" viewBox="0 0 320 320" role="img" aria-label="Карта школы, двери и выход"></svg><div class="map-legend"><i></i> ты <i></i> дверь <i></i> выход</div></div>
+      <div id="map-wrap" class="map-wrap" hidden><div class="map-heading">ПЛАН ШКОЛЫ <span>M</span></div><svg id="minimap" viewBox="0 0 320 320" role="img" aria-label="Карта школы, двери, котики, подсказка и выход"></svg><div class="map-legend"><i></i> ты <i></i> дверь <i></i> выход</div></div>
       <div class="crosshair" aria-hidden="true"></div>
       <div id="interaction" class="interaction" hidden><kbd>E</kbd><span>Взять тетрадь</span></div>
       <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -71,7 +71,7 @@
       <small>Если экран не поворачивается, отключи блокировку ориентации на телефоне. Игра подождёт.</small>
     </div>
     <section id="modal" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="modal-title">
-      <div class="modal-card"><span id="modal-symbol" class="modal-symbol">Ⅱ</span><div id="modal-eyebrow" class="eyebrow">МОЖНО ВЫДОХНУТЬ</div><h2 id="modal-title">Перемена<br>на паузе.</h2><p id="modal-description">Школа подождёт. Продолжим, когда будешь готов.</p><div id="result-stats" class="result-stats" hidden></div><button id="resume" class="primary"><span>Продолжить</span><span>→</span></button><button id="restart" class="secondary">Начать заново</button><button id="home" class="text-button">В главное меню</button><p class="modal-controls">WASD — идти · Shift — бежать · E — двери и тетради<br>Мышь или ← → — обзор · M — карта</p></div>
+      <div class="modal-card"><span id="modal-symbol" class="modal-symbol">Ⅱ</span><div id="modal-eyebrow" class="eyebrow">МОЖНО ВЫДОХНУТЬ</div><h2 id="modal-title">Перемена<br>на паузе.</h2><p id="modal-description">Школа подождёт. Продолжим, когда будешь готов.</p><div id="result-stats" class="result-stats" hidden></div><button id="resume" class="primary"><span>Продолжить</span><span>→</span></button><button id="restart" class="secondary">Начать заново</button><button id="home" class="text-button">В главное меню</button><p class="modal-controls">WASD — идти · Shift — бежать · E — двери, тетради и котики<br>Мышь или ← → — обзор · M — карта</p></div>
     </section>
     <div id="confetti" aria-hidden="true"></div>
     <script type="module" src="/src/main.js"></script>
