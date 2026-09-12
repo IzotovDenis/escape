@@ -51,3 +51,5 @@ html,body{overscroll-behavior:none}button{touch-action:manipulation}
 .touch-actions button{touch-action:none}
 .rotate-screen{position:fixed;inset:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#292537f7;color:#f6f3ea;padding:calc(24px + env(safe-area-inset-top)) 32px calc(24px + env(safe-area-inset-bottom));touch-action:none}
 .rotate-screen>span{font-size:76px;line-height:1.2;color:#efd19c}.rotate-screen strong{font-size:28px;margin-top:18px}.rotate-screen p{max-width:300px;line-height:1.6;font-size:15px}.rotate-screen small{max-width:280px;line-height:1.6;font-size:12px;color:#cec2dd}
+
+.brand-mark svg{width:75%;height:75%;display:block}

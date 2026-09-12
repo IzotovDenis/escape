@@ -5,7 +5,7 @@ export async function createWorld(canvas) {
   const mobile = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.25 : 1.7));
-  renderer.setSize(innerWidth, innerHeight);
+  renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
@@ -16,7 +16,7 @@ export async function createWorld(canvas) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#d7ded8');
   scene.fog = new THREE.Fog('#d7ded8', 20, 65);
-  const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.07, 85);
+  const camera = new THREE.PerspectiveCamera(68, 1, 0.07, 85);
   camera.rotation.order = 'YXZ';
   scene.add(new THREE.HemisphereLight('#fff4dd', '#82918f', 2.5));
   const sun = new THREE.DirectionalLight('#ffe0a0', 3.1);
@@ -245,6 +245,7 @@ export async function createWorld(canvas) {
   shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.024; scene.add(shadow);
 
   function render(time, game, intro = false, reduced = false) {
+    resize();
     const running = !intro && game.state === 'playing' && game.enemyMoving;
     spriteMaterial.uniforms.isIdle.value = running ? 0 : 1;
     runner.userData.pose = running ? 'running' : 'idle';
@@ -274,7 +275,17 @@ export async function createWorld(canvas) {
     camera.updateProjectionMatrix(); renderer.render(scene, camera);
   }
 
-  function resize() { camera.aspect = innerWidth / innerHeight; renderer.setSize(innerWidth, innerHeight); camera.updateProjectionMatrix(); }
-  addEventListener('resize', resize);
+  let renderWidth = 0, renderHeight = 0;
+  function resize() {
+    // Safari can finish rotating after its resize event, or while textures load.
+    // CSS owns the full-screen canvas; sync its drawing buffer before each frame.
+    const width = canvas.clientWidth, height = canvas.clientHeight;
+    if (!width || !height || (width === renderWidth && height === renderHeight)) return;
+    renderWidth = width; renderHeight = height;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+  }
+  resize();
   return { renderer, scene, camera, runner, render, bookMeshes, resize };
 }
