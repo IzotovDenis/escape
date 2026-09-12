@@ -276,6 +276,7 @@ export async function createWorld(canvas) {
     mesh.position.set(position.x, size * 0.47, position.z); scene.add(mesh);
     const groundShadow = shadow.clone(); groundShadow.scale.set(0.65, 0.7, 1);
     groundShadow.position.set(position.x, 0.025, position.z); scene.add(groundShadow);
+    mesh.userData.groundShadow = groundShadow;
     return mesh;
   }
   const cats = CATS.map(cat => petSprite(cat.id, cat, 1.15));
@@ -286,17 +287,25 @@ export async function createWorld(canvas) {
     const piece = new THREE.Mesh(poopGeometry, material('#765035'));
     piece.position.set(x, y, 0); piece.scale.set(radius, radius * 0.7, radius * 0.8); poopMesh.add(piece);
   }
-  scene.add(poopMesh);
+  const poopMeshes = [];
 
   function render(time, game, intro = false, reduced = false) {
     resize();
-    for (const pet of [...cats, dog]) {
+    for (const [pet, state, size] of [...cats.map((mesh, i) => [mesh, game.cats[i], 1.15]), [dog, game.dog, 1.5]]) {
+      pet.position.set(state.x, size * 0.47 + (!reduced && state.moving ? Math.sin(time * 10) * 0.025 : 0), state.z);
+      pet.userData.groundShadow.position.set(state.x, 0.025, state.z);
       pet.rotation.y = Math.atan2(camera.position.x - pet.position.x, camera.position.z - pet.position.z);
     }
     dog.material.uniforms.frame.value = game.dog.phase === 'squatting' ? 3 : 2;
-    dog.position.y = 1.5 * 0.47 + (!reduced && game.dog.phase === 'squatting' ? Math.sin(time * 9) * 0.012 : 0);
-    poopMesh.visible = !intro && game.poops.length > 0;
-    if (game.poops[0]) poopMesh.position.set(game.poops[0].x, 0, game.poops[0].z);
+    if (!reduced && game.dog.phase === 'squatting') dog.position.y += Math.sin(time * 9) * 0.012;
+    while (poopMeshes.length < game.poops.length) {
+      const mesh = poopMesh.clone(); scene.add(mesh); poopMeshes.push(mesh);
+    }
+    while (poopMeshes.length > game.poops.length) scene.remove(poopMeshes.pop());
+    poopMeshes.forEach((mesh, i) => {
+      mesh.visible = !intro;
+      mesh.position.set(game.poops[i].x, 0, game.poops[i].z);
+    });
     const running = !intro && game.state === 'playing' && game.enemyMoving;
     spriteMaterial.uniforms.isIdle.value = running ? 0 : 1;
     runner.userData.pose = running ? 'running' : 'idle';

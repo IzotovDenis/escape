@@ -209,13 +209,43 @@ test('Dog squats before leaving a pile; stepping on it slows movement briefly', 
   updatePets(game, 5); assert.equal(game.dog.phase, 'squatting'); assert.equal(game.poops.length, 0);
   updatePets(game, 2.5); assert.equal(game.dog.phase, 'idle'); assert.equal(game.poops.length, 1);
   game.player = { ...game.poops[0] };
-  updatePets(game, 0.01); assert.equal(game.poops.length, 0); assert.equal(game.slowed, 2.5);
+  updatePets(game, 0.01); assert.equal(game.poops.length, 1); assert.equal(game.slowed, 2.5);
   const other = newGame(); other.player = { ...game.player };
   const start = { ...game.player };
   updateGame(game, 0.05, { x: 0, z: -1 }); updateGame(other, 0.05, { x: 0, z: -1 });
   assert.ok(Math.abs(distance(start, game.player) * 2 - distance(start, other.player)) < 0.001);
+  game.player = { ...SPAWN };
   updatePets(game, 2.5); assert.equal(game.slowed, 0);
+  assert.equal(game.poops.length, 1);
   game.state = 'paused'; const timer = game.dog.timer;
   updateGame(game, 0.05, { x: 0, z: 0 }); assert.equal(game.dog.timer, timer);
   const fresh = newGame(); assert.equal(fresh.poops.length, 0); assert.equal(fresh.slowed, 0); assert.deepEqual(fresh.catReadyAt, [0, 0]);
+});
+
+
+test('Pets roam without crossing walls, interactions follow cats, piles accumulate until restart', async () => {
+  const { updatePets, nearbyCat } = await import('./game.js');
+  const game = newGame();
+  const starts = [...game.cats, game.dog].map(p => ({ x: p.x, z: p.z }));
+  const travelled = [0, 0, 0];
+  for (let i = 0; i < 2400; i++) {
+    updatePets(game, 0.05);
+    [...game.cats, game.dog].forEach((pet, j) => {
+      assert.ok(canStand(pet.x, pet.z, 0.28, game.openedDoors));
+      travelled[j] = Math.max(travelled[j], distance(pet, starts[j]));
+    });
+  }
+  assert.ok(travelled.every(d => d > 3));
+  assert.ok(game.poops.length >= 6);
+  const first = { ...game.poops[0] }, count = game.poops.length;
+  game.player = { ...first }; updatePets(game, 0.05);
+  assert.equal(game.poops.length, count); assert.equal(game.slowed, 2.5);
+  assert.deepEqual(game.poops[0], first);
+  game.player = { ...game.cats[0] };
+  assert.equal(nearbyCat(game).id, 0);
+  assert.equal(interact(game), 'cat');
+  const positions = [...game.cats, game.dog].map(p => ({ x: p.x, z: p.z }));
+  game.state = 'paused'; updateGame(game, 0.05, { x: 0, z: 0 });
+  assert.deepEqual([...game.cats, game.dog].map(p => ({ x: p.x, z: p.z })), positions);
+  assert.equal(newGame().poops.length, 0);
 });

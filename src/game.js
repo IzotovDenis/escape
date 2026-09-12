@@ -98,7 +98,7 @@ export function visible(a, b, openedDoors = null) {
 }
 
 export function newGame(mode = 'easy') {
-  return { catReadyAt: [0, 0], petMessage: null, hintBook: null, hintUntil: 0, dog: { phase: 'idle', timer: 5 }, poops: [], slowed: 0, player: { ...SPAWN }, enemy: { ...ENEMY_SPAWN }, wanderer: { ...WANDERER_SPAWN, state: 'wandering', path: [], previous: null, travel: 0, moving: false }, collected: new Set(), openedDoors: new Set(), visitedRooms: new Set(), doorWait: null, stamina: 1, tired: false, elapsed: 0, mode, state: 'playing', grace: 12, path: [], pathAge: 1, enemyTravel: 0, enemyMoving: false };
+  return { catReadyAt: [0, 0], petMessage: null, hintBook: null, hintUntil: 0, cats: CATS.map(cat => ({ ...cat, path: [], rest: 2 + cat.id * 3 })), dog: { ...DOG, path: [], rest: 0, phase: 'idle', timer: 5 }, poops: [], slowed: 0, player: { ...SPAWN }, enemy: { ...ENEMY_SPAWN }, wanderer: { ...WANDERER_SPAWN, state: 'wandering', path: [], previous: null, travel: 0, moving: false }, collected: new Set(), openedDoors: new Set(), visitedRooms: new Set(), doorWait: null, stamina: 1, tired: false, elapsed: 0, mode, state: 'playing', grace: 12, path: [], pathAge: 1, enemyTravel: 0, enemyMoving: false };
 }
 
 const corridor = p => !roomAt(p) && !doorAt(p) && open(tile(p).x, tile(p).z);
@@ -260,26 +260,55 @@ export function interact(game) {
 export const formatTime = seconds => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
 
-export const nearbyCat = game => CATS.filter(cat => distance(game.player, cat) < 2.1 && visible(game.player, cat, game.openedDoors)).sort((a, b) => distance(game.player, a) - distance(game.player, b))[0];
+export const nearbyCat = game => game.cats.filter(cat => distance(game.player, cat) < 2.1 && visible(game.player, cat, game.openedDoors)).sort((a, b) => distance(game.player, a) - distance(game.player, b))[0];
+
+// Choose adjacent corridor cells so pets never cross a wall or a closed door.
+function stroll(pet, game, dt, speed) {
+  pet.moving = false;
+  if (pet.rest > 0) { pet.rest = Math.max(0, pet.rest - dt); return; }
+  if (!pet.path.length) {
+    const cell = tile(pet), center = at(cell.x, cell.z);
+    if (distance(pet, center) > 0.05) pet.path = [center];
+    else {
+      const options = [[0, -1], [1, 0], [0, 1], [-1, 0]]
+        .map(([x, z]) => at(cell.x + x, cell.z + z)).filter(corridor);
+      const onward = options.filter(p => !pet.previous || distance(p, pet.previous) > 0.1);
+      const choices = onward.length ? onward : options;
+      if (!choices.length) return;
+      pet.previous = center;
+      pet.path = [choices[Math.floor(Math.random() * choices.length)]];
+    }
+  }
+  const target = pet.path[0], d = distance(pet, target), step = Math.min(d, speed * dt);
+  if (d > 0.001) {
+    const before = { x: pet.x, z: pet.z };
+    move(pet, (target.x - pet.x) / d * step, (target.z - pet.z) / d * step, game.openedDoors);
+    pet.moving = distance(before, pet) > 0.0001;
+  }
+  if (distance(pet, target) < 0.05) {
+    pet.path.shift();
+    if (Math.random() < 0.2) pet.rest = 1 + Math.random() * 3;
+  }
+}
 
 export function updatePets(game, dt) {
   game.slowed = Math.max(0, game.slowed - dt);
+  for (const cat of game.cats) {
+    // Stop nearby so the player can pet a moving cat.
+    if (distance(game.player, cat) < 2.1) cat.moving = false;
+    else stroll(cat, game, dt, 0.85);
+  }
+  game.dog.moving = false;
+  if (game.dog.phase === 'idle') stroll(game.dog, game, dt, 1.2);
   game.dog.timer -= dt;
   if (game.dog.timer <= 0) {
     if (game.dog.phase === 'idle') {
       game.dog.phase = 'squatting'; game.dog.timer = 2.5;
     } else {
       game.dog.phase = 'idle'; game.dog.timer = 16;
-      // Keep one fresh pile at the dog's feet; old piles disappear.
-      game.poops = [{ x: DOG.x - 0.65, z: DOG.z + 0.45, remaining: 14 }];
+      game.poops.push({ x: game.dog.x, z: game.dog.z });
     }
   }
-  game.poops = game.poops.filter(poop => {
-    poop.remaining -= dt;
-    if (distance(game.player, poop) < 0.65) {
-      game.slowed = 2.5;
-      return false;
-    }
-    return poop.remaining > 0;
-  });
+  // Piles persist after contact; stepping away lets the slowdown wear off.
+  if (game.poops.some(poop => distance(game.player, poop) < 0.65)) game.slowed = 2.5;
 }

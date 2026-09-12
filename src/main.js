@@ -2,7 +2,7 @@ import './style.css';
 import './pwa.js';
 import { createTouchControls } from './touch.js';
 import { createWorld } from './world.js';
-import { grid, SIZE, CELL, ORIGIN, DOORS, EXIT, TOTAL, CATS, BOOKS, nearbyCat, newGame, updateGame, interact, nearby, nearbyDoor, roomAt, distance, tile, formatTime } from './game.js';
+import { grid, SIZE, CELL, ORIGIN, DOORS, EXIT, TOTAL, BOOKS, nearbyCat, newGame, updateGame, interact, nearby, nearbyDoor, roomAt, distance, tile, formatTime } from './game.js';
 
 const $ = id => document.getElementById(id);
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -194,9 +194,9 @@ function updateMap() {
     const isOpen = game.openedDoors.has(door.id);
     svg += `<rect x="${door.tx * 10 + (door.axis === 'x' ? 3 : 0)}" y="${door.tz * 10 + (door.axis === 'z' ? 3 : 0)}" width="${door.axis === 'x' ? 4 : 10}" height="${door.axis === 'z' ? 4 : 10}" fill="${isOpen ? '#91bcb0' : '#e6bb7c'}"/>`;
   }
-  for (const cat of CATS) {
+  for (const cat of game.cats) {
     const t = tile(cat);
-    svg += `<circle cx="${t.x * 10 + 5}" cy="${t.z * 10 + 5}" r="3" fill="#ffd19b"><title>${cat.name}</title></circle>`;
+    svg += `<circle id="map-cat-${cat.id}" cx="${t.x * 10 + 5}" cy="${t.z * 10 + 5}" r="3" fill="#ffd19b"><title>${cat.name}</title></circle>`;
   }
   const hinted = game.hintUntil > game.elapsed && BOOKS.find(b => b.id === game.hintBook && !game.collected.has(b.id));
   if (hinted) {
@@ -225,6 +225,11 @@ function hud() {
   $('location').textContent = room ? `${String(room.id + 1).padStart(2, '0')} · ${room.name}` : t.x === 15 || t.x === 16 ? 'Главный коридор' : ['Северное крыло', 'Крыло открытий', 'Творческое крыло', 'Южное крыло'][Math.min(3, Math.floor(t.z / 8))];
   const signature = [...game.openedDoors].join(',') + ':' + (game.hintUntil > game.elapsed ? game.hintBook : 'none') + ':' + game.collected.size;
   if (signature !== mapSignature) { mapSignature = signature; updateMap(); }
+  if (mapVisible) for (const cat of game.cats) {
+    const marker = $('map-cat-' + cat.id);
+    marker?.setAttribute('cx', (cat.x / CELL + ORIGIN) * 10 + 5);
+    marker?.setAttribute('cy', (cat.z / CELL + ORIGIN) * 10 + 5);
+  }
   if (mapVisible) $('map-player')?.setAttribute('transform', `translate(${(game.player.x / CELL + ORIGIN) * 10 + 5},${(game.player.z / CELL + ORIGIN) * 10 + 5}) rotate(${-yaw * 180 / Math.PI})`);
 }
 
