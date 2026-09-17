@@ -3,13 +3,13 @@ export function action(run, name) {
   if (name === 'left') run.lane = Math.max(0, run.lane - 1);
   if (name === 'right') run.lane = Math.min(2, run.lane + 1);
   if (name === 'jump' && !run.jump) { run.jump = .9; run.slide = 0; }
-  if (name === 'slide' && !run.jump) run.slide = .85;
+  if (name === 'slide') { run.jump = 0; run.slide = .85; }
 }
 export function height(run) { return run.jump > 0 ? Math.sin((1 - run.jump / .9) * Math.PI) * 2.5 : 0; }
 export function tick(run, dt) {
   run.speed = Math.min(34, 16 + run.distance / 110);
   run.distance += run.speed * dt;
-  run.x += ((run.lane - 1) * 3 - run.x) * (1 - Math.exp(-dt * 21));
+  run.x += ((run.lane - 1) * 3 - run.x) * (1 - Math.exp(-dt * 35));
   run.jump = Math.max(0, run.jump - dt); run.slide = Math.max(0, run.slide - dt); run.invincible = Math.max(0, run.invincible - dt);
 }
 export function hits(run, item) {
@@ -37,3 +37,12 @@ float routeOffset(float ahead) {
     -ahead*(10./65.)*cos(trackBend/65.);
 }
 `;
+
+// Consume a gesture as soon as the finger crosses the threshold, once per touch.
+export function swipeAction(gesture, x, y) {
+  if (!gesture || gesture.fired) return null;
+  const dx=x-gesture.x,dy=y-gesture.y;
+  if (Math.max(Math.abs(dx),Math.abs(dy)) < 14) return null;
+  gesture.fired=true;
+  return Math.abs(dx)>Math.abs(dy) ? dx>0?'right':'left' : dy<0?'jump':'slide';
+}

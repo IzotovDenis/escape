@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newRun, action, tick, hits, row, trackOffset } from './aqua-logic.js';
+import { newRun, action, tick, hits, row, trackOffset, height, swipeAction } from './aqua-logic.js';
 test('jump clears rings, slide clears arches, jump also clears flamingos',()=>{const r=newRun();assert.equal(hits(r,{lane:1,kind:'ring'}),true);action(r,'jump');tick(r,.45);assert.equal(hits(r,{lane:1,kind:'ring'}),false);assert.equal(hits(r,{lane:1,kind:'flamingo'}),false);tick(r,.5);action(r,'slide');assert.equal(hits(r,{lane:1,kind:'arch'}),false);assert.equal(hits(r,{lane:1,kind:'ring'}),true);});
 test('lane changes stay on track and obstacle rows always have a safe lane',()=>{const r=newRun();for(let i=0;i<5;i++)action(r,'left');assert.equal(r.lane,0);tick(r,.1);assert.equal(hits(r,{lane:1,kind:'flamingo'}),false);for(let i=0;i<500;i++){const pattern=row();assert.equal(pattern.obstacles.length,2);assert.ok(pattern.obstacles.every(o=>o.lane!==pattern.safe));}});
 test('restart resets protection, collectibles and movement; speed stays capped',()=>{const r=newRun();r.shield=false;r.coins=18;action(r,'jump');const fresh=newRun();assert.equal(fresh.shield,true);assert.equal(fresh.coins,0);assert.equal(fresh.jump,0);fresh.distance=100000;tick(fresh,.016);assert.equal(fresh.speed,34);});
@@ -35,4 +35,26 @@ test('flamingos allow forgiving jump timing throughout the collision window',()=
  }
  const grounded=newRun();assert.equal(hits(grounded,{lane:1,kind:'flamingo'}),true);
  action(grounded,'slide');assert.equal(hits(grounded,{lane:1,kind:'flamingo'}),true);
+});
+
+test('down immediately lands at every jump phase and up interrupts sliding',()=>{
+ for(const elapsed of [.05,.25,.45,.75]){
+  const r=newRun();action(r,'jump');tick(r,elapsed);assert.ok(height(r)>0);
+  action(r,'slide');assert.equal(height(r),0);assert.equal(r.jump,0);assert.equal(r.slide,.85);
+  assert.equal(hits(r,{lane:1,kind:'arch'}),false);
+  action(r,'jump');assert.equal(r.slide,0);tick(r,.05);assert.ok(height(r)>0);
+ }
+});
+test('lane movement responds in one frame and can reverse mid-jump',()=>{
+ const r=newRun();action(r,'jump');action(r,'right');tick(r,1/60);assert.ok(r.x>1);
+ action(r,'left');action(r,'left');tick(r,.08);assert.ok(r.x < -2.7);assert.ok(r.jump>0);
+});
+test('swipes fire during movement once, with small jitter ignored',()=>{
+ for(const [x,y,expected] of [[14,0,'right'],[-14,2,'left'],[1,-14,'jump'],[2,14,'slide']]){
+  const gesture={x:100,y:100,fired:false};
+  assert.equal(swipeAction(gesture,105,104),null);
+  assert.equal(swipeAction(gesture,100+x,100+y),expected);
+  assert.equal(swipeAction(gesture,100+x*3,100+y*3),null);
+ }
+ assert.equal(swipeAction(null,0,0),null);
 });

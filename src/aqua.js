@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { createAquaRunner } from './aqua-runner.js';
 import { createObstacleFactory } from './aqua-obstacles.js';
 import { createSunnyPark } from './aqua-sunny.js';
-import { newRun, action, tick, height, hits, row, trackOffset, trackShader } from './aqua-logic.js';
+import { newRun, action, tick, height, hits, row, trackOffset, trackShader, swipeAction } from './aqua-logic.js';
 const $ = id => document.getElementById(id);
 let state = 'menu', run = newRun(), skin = 0, best = 0, muted = false, audio, items = [], spawn = 0, last = 0, time = 0, toastUntil = 0;
 try { best = Number(localStorage.getItem('aqua-best')) || 0; skin = Number(localStorage.getItem('aqua-skin')) === 1 ? 1 : 0; } catch {}
@@ -67,7 +67,25 @@ $('sound').onclick=()=>{muted=!muted;$('sound').textContent=muted?'♪̸':'♫';
 function input(name){if(state==='playing'){action(run,name);if(name==='jump')beep(450);}}
 addEventListener('keydown',e=>{const a={ArrowLeft:'left',a:'left',ArrowRight:'right',d:'right',ArrowUp:'jump',w:'jump',' ':'jump',ArrowDown:'slide',s:'slide'}[e.key];if(a&&state==='playing'){e.preventDefault();if(!e.repeat)input(a);}if(e.key==='Escape'){if(state==='playing')pause();else if(state==='paused')$('resume').click();}});
 document.querySelectorAll('[data-action]').forEach(b=>b.onpointerdown=e=>{e.preventDefault();input(b.dataset.action);});
-let gesture;const canvas=$('aqua-scene');canvas.onpointerdown=e=>{gesture={x:e.clientX,y:e.clientY,id:e.pointerId};canvas.setPointerCapture(e.pointerId);};canvas.onpointerup=e=>{if(!gesture||gesture.id!==e.pointerId)return;const dx=e.clientX-gesture.x,dy=e.clientY-gesture.y;gesture=null;if(Math.max(Math.abs(dx),Math.abs(dy))>25)input(Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy<0?'jump':'slide');};canvas.onpointercancel=()=>gesture=null;
+let gesture;const canvas=$('aqua-scene');
+canvas.onpointerdown=e=>{
+ if(state!=='playing'||gesture||e.isPrimary===false||e.button!==0)return;
+ e.preventDefault();gesture={x:e.clientX,y:e.clientY,id:e.pointerId,fired:false};
+ canvas.setPointerCapture(e.pointerId);
+};
+function moveGesture(e){
+ if(!gesture||gesture.id!==e.pointerId)return;
+ if(state!=='playing'){gesture=null;return;}
+ e.preventDefault();const command=swipeAction(gesture,e.clientX,e.clientY);
+ if(command)input(command);
+}
+canvas.onpointermove=moveGesture;
+canvas.onpointerup=e=>{
+ if(!gesture||gesture.id!==e.pointerId)return;
+ moveGesture(e);gesture=null;
+ if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);
+};
+canvas.onpointercancel=canvas.onlostpointercapture=e=>{if(gesture?.id===e.pointerId)gesture=null;};
 addEventListener('blur',()=>{gesture=null;pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.fov=camera.aspect<.8?70:55;camera.updateProjectionMatrix();park?.resize(camera.aspect);}addEventListener('resize',resize);resize();
 function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000||0,.04);last=now;time+=dt;
