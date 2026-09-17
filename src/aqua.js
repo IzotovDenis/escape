@@ -59,14 +59,13 @@ async function init(){
 }
 function makeItem(kind,lane,z){const g=buildObstacle(kind);g.position.set((lane-1)*3,0,z);scene.add(g);items.push({kind,lane,z,mesh:g,done:false});}
 function clear(){for(const i of items)scene.remove(i.mesh);items=[];}
-function start(){clear();run=newRun();spawn=0;state='playing';$('menu').hidden=true;$('overlay').hidden=true;$('hud').hidden=false;$('touch').hidden=false;$('footer').hidden=true;beep();toast('← → обходи · ↑ круги и фламинго · ↓ арки');}
-function pause(){if(state!=='playing')return;state='paused';$('overlay').hidden=false;$('touch').hidden=true;$('result-title').textContent='На паузе';$('result-copy').textContent='Вода подождёт. Отдохни и продолжай.';$('result-label').textContent='МОЖНО ВЫДОХНУТЬ';$('resume').hidden=false;$('resume').focus();}
-function end(){state='ended';beep(160);const d=Math.floor(run.distance);if(d>best){best=d;try{localStorage.setItem('aqua-best',String(best));}catch{}}$('best').textContent=`${best} м`;$('overlay').hidden=false;$('touch').hidden=true;$('result-label').textContent='ВОТ ЭТО ЗАПЛЫВ!';$('result-title').textContent=`${d} метров`;$('result-copy').textContent=`Мороженое: ${run.coins} · Рекорд: ${best} м`;$('resume').hidden=true;$('retry').focus();}
-$('start').onclick=start;$('retry').onclick=start;$('pause').onclick=pause;$('resume').onclick=()=>{state='playing';$('overlay').hidden=true;$('touch').hidden=false;};$('home').onclick=()=>{state='menu';clear();run=newRun();$('menu').hidden=false;$('overlay').hidden=true;$('hud').hidden=true;$('touch').hidden=true;$('footer').hidden=false;$('start').focus();};
+function start(){clear();run=newRun();spawn=0;state='playing';$('menu').hidden=true;$('overlay').hidden=true;$('hud').hidden=false;$('footer').hidden=true;beep();toast('← → обходи · ↑ круги и фламинго · ↓ арки');}
+function pause(){if(state!=='playing')return;state='paused';$('overlay').hidden=false;$('result-title').textContent='На паузе';$('result-copy').textContent='Вода подождёт. Отдохни и продолжай.';$('result-label').textContent='МОЖНО ВЫДОХНУТЬ';$('resume').hidden=false;$('resume').focus();}
+function end(){state='ended';beep(160);const d=Math.floor(run.distance);if(d>best){best=d;try{localStorage.setItem('aqua-best',String(best));}catch{}}$('best').textContent=`${best} м`;$('overlay').hidden=false;$('result-label').textContent='ВОТ ЭТО ЗАПЛЫВ!';$('result-title').textContent=`${d} метров`;$('result-copy').textContent=`Мороженое: ${run.coins} · Рекорд: ${best} м`;$('resume').hidden=true;$('retry').focus();}
+$('start').onclick=start;$('retry').onclick=start;$('pause').onclick=pause;$('resume').onclick=()=>{state='playing';$('overlay').hidden=true;};$('home').onclick=()=>{state='menu';clear();run=newRun();$('menu').hidden=false;$('overlay').hidden=true;$('hud').hidden=true;$('footer').hidden=false;$('start').focus();};
 $('sound').onclick=()=>{muted=!muted;$('sound').textContent=muted?'♪̸':'♫';$('sound').setAttribute('aria-label',muted?'Включить звук':'Выключить звук');};
 function input(name){if(state==='playing'){action(run,name);if(name==='jump')beep(450);}}
 addEventListener('keydown',e=>{const a={ArrowLeft:'left',a:'left',ArrowRight:'right',d:'right',ArrowUp:'jump',w:'jump',' ':'jump',ArrowDown:'slide',s:'slide'}[e.key];if(a&&state==='playing'){e.preventDefault();if(!e.repeat)input(a);}if(e.key==='Escape'){if(state==='playing')pause();else if(state==='paused')$('resume').click();}});
-document.querySelectorAll('[data-action]').forEach(b=>b.onpointerdown=e=>{e.preventDefault();input(b.dataset.action);});
 let gesture;const canvas=$('aqua-scene');
 canvas.onpointerdown=e=>{
  if(state!=='playing'||gesture||e.isPrimary===false||e.button!==0)return;
@@ -87,7 +86,18 @@ canvas.onpointerup=e=>{
 };
 canvas.onpointercancel=canvas.onlostpointercapture=e=>{if(gesture?.id===e.pointerId)gesture=null;};
 addEventListener('blur',()=>{gesture=null;pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
-function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.fov=camera.aspect<.8?70:55;camera.updateProjectionMatrix();park?.resize(camera.aspect);}addEventListener('resize',resize);resize();
+function resize(){
+ const bounds=canvas.getBoundingClientRect();
+ const width=Math.max(1,Math.round(bounds.width)),height=Math.max(1,Math.round(bounds.height));
+ // CSS owns the full-screen canvas size, including iOS safe areas.
+ // Only resize the drawing buffer here; inline pixel heights can become stale.
+ renderer.setSize(width,height,false);camera.aspect=width/height;
+ camera.fov=camera.aspect<.8?70:55;camera.updateProjectionMatrix();park?.resize(camera.aspect);
+}
+addEventListener('resize',resize);
+window.visualViewport?.addEventListener('resize',resize);
+new ResizeObserver(resize).observe(canvas);
+resize();
 function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000||0,.04);last=now;time+=dt;
  if(state==='playing'){
  tick(run,dt);spawn-=run.speed*dt;
