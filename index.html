@@ -1,80 +1,17 @@
 <!doctype html>
-<html lang="ru">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#7651bf" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Перемена" />
-    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
-    <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%icons/apple-touch-icon.png" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Перемена — школьные догонялки</title>
-  </head>
-  <body>
-    <canvas id="world" aria-label="Объёмная школа — игровая сцена"></canvas>
-    <div class="scene-shade" aria-hidden="true"></div>
-    <header class="topbar">
-      <a class="brand" href="%BASE_URL%" aria-label="Перемена — главное меню"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M7 25 25 7M8 7h17v17" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>перемена<span class="brand-dot">.</span></a>
-      <div class="top-actions"><span class="edition">ТВОЯ ШКОЛА. ТВОЯ ИГРА.</span><button id="sound" class="icon-button" aria-label="Выключить звук" title="Звук">♫</button><button id="fullscreen" class="icon-button" aria-label="На весь экран" title="На весь экран">⛶</button></div>
-    </header>
-
-    <main id="welcome" class="welcome">
-      <div class="welcome-copy">
-        <div class="eyebrow"><span class="live-dot"></span> ШКОЛА ПРИКЛЮЧЕНИЙ</div>
-        <h1>Поймай<br><span>перемену.</span></h1>
-        <p class="lead">Звонок прозвенел. Правила просты:<br>собери тетради и не дай себя догнать!</p>
-        <div class="difficulty" aria-label="Сложность"><button class="selected" data-mode="easy" aria-pressed="true">☀ Для разминки</button><button data-mode="normal" aria-pressed="false">ϟ Побыстрее</button></div>
-        <button id="start" class="primary" disabled><span id="start-label">Готовим школу…</span><span aria-hidden="true">↗</span></button>
-        <a href="./aquapark.html" style="display:block;margin-top:16px;color:#7651bf;font-weight:700">💦 Новая игра: Аквапарк →</a>
-        <p class="start-note">Без страшилок. Только азарт и жёлтые носки.</p>
-        <details id="install-panel" class="install-panel">
-          <summary>↗ На экран телефона</summary>
-          <div class="install-content">
-            <p><strong>Android:</strong> меню Chrome ⋮ → «Установить приложение» или «Добавить на главный экран».</p>
-            <p><strong>iPhone / iPad:</strong> открой в Safari → «Поделиться» → «На экран Домой». Если есть переключатель «Открывать как веб-приложение», включи его.</p>
-            <p id="offline-status" role="status">Сохраняем игру для запуска без интернета…</p>
-            <button id="install-app" class="secondary" hidden>Установить игру</button>
-            <button id="update-app" class="secondary" hidden>Обновить игру</button>
-          </div>
-        </details>
-        <p id="load-error" class="error" role="alert" hidden></p>
-      </div>
-      <div class="hero-tag" aria-hidden="true"><span class="tag-star">✳</span><div>А вот и твой<br><strong>соперник!</strong></div><span class="tag-arrow">↘</span></div>
-      <div class="welcome-bottom">
-        <div class="mission"><span class="mission-number">01</span><span>Найди <strong>20 тетрадей</strong></span></div>
-        <div class="mission"><span class="mission-number">02</span><span><strong>Открывай</strong> классы</span></div>
-        <div class="mission"><span class="mission-number">03</span><span>Доберись <strong>до выхода</strong></span></div>
-        <span class="keyboard-note">⌨ Клавиатура + мышь</span>
-      </div>
-    </main>
-
-    <section id="hud" class="hud" aria-label="Игровая информация" hidden>
-      <div class="objectives"><div class="notebook-icon" aria-hidden="true">▤</div><div><span class="hud-label">ТЕТРАДИ</span><strong><span id="count">0</span><span class="count-total"> / 20</span></strong></div><div class="hud-separator"></div><div><span class="hud-label">ПРОШЛО</span><strong id="timer">00:00</strong></div></div>
-      <div class="location-pill"><span class="live-dot"></span><span id="location">Главный коридор</span></div>
-      <div id="map-wrap" class="map-wrap" hidden><div class="map-heading">ПЛАН ШКОЛЫ <span>M</span></div><svg id="minimap" viewBox="0 0 320 320" role="img" aria-label="Карта школы, двери, котики, подсказка и выход"></svg><div class="map-legend"><i></i> ты <i></i> дверь <i></i> выход</div></div>
-      <div class="crosshair" aria-hidden="true"></div>
-      <div id="interaction" class="interaction" hidden><kbd>E</kbd><span>Взять тетрадь</span></div>
-      <div id="toast" class="toast" role="status" aria-live="polite"></div>
-      <div class="bottom-hud"><div class="stamina"><div><span>ϟ ЭНЕРГИЯ</span><span id="stamina-label">100%</span></div><div class="stamina-track"><div id="stamina-bar"></div></div><small id="chase-label">Есть время осмотреться</small></div><div class="controls"><span><kbd>W A S D</kbd> идти</span><span><kbd>Shift</kbd> бежать</span><button id="map-toggle"><kbd>M</kbd> карта</button><button id="pause-button"><kbd>Esc</kbd> пауза</button></div></div>
-      <div id="danger" class="danger" aria-hidden="true"></div>
-    </section>
-
-    <div id="touch-controls" class="touch-controls" aria-label="Сенсорное управление" hidden>
-      <div id="joystick" class="joystick" role="group" aria-label="Джойстик движения"><span class="joystick-guide" aria-hidden="true">↑</span><span id="joystick-knob"></span><span class="joystick-label">ИДТИ</span></div>
-      <div class="touch-look-hint" aria-hidden="true">Проведи справа — обзор</div>
-      <div class="touch-actions"><button id="touch-sprint" aria-label="Бег — удерживай" aria-pressed="false">ϟ Бег</button><button id="touch-use" disabled>Действие</button></div>
-    </div>
-    <div id="rotate-screen" class="rotate-screen" role="status" hidden>
-      <span aria-hidden="true">↻</span><strong>Поверни телефон</strong>
-      <p>Играй горизонтально — так удобнее управлять двумя руками.</p>
-      <small>Если экран не поворачивается, отключи блокировку ориентации на телефоне. Игра подождёт.</small>
-    </div>
-    <section id="modal" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="modal-title">
-      <div class="modal-card"><span id="modal-symbol" class="modal-symbol">Ⅱ</span><div id="modal-eyebrow" class="eyebrow">МОЖНО ВЫДОХНУТЬ</div><h2 id="modal-title">Перемена<br>на паузе.</h2><p id="modal-description">Школа подождёт. Продолжим, когда будешь готов.</p><div id="result-stats" class="result-stats" hidden></div><button id="resume" class="primary"><span>Продолжить</span><span>→</span></button><button id="restart" class="secondary">Начать заново</button><button id="home" class="text-button">В главное меню</button><p class="modal-controls">WASD — идти · Shift — бежать · E — двери, тетради и котики<br>Мышь или ← → — обзор · M — карта</p></div>
-    </section>
-    <div id="confetti" aria-hidden="true"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
-</html>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#097e91"><title>Аквапарк — лето на скорости</title></head>
+<body>
+<canvas id="aqua-scene" aria-label="Три дорожки аквапарка"></canvas>
+<header><a href="./school.html" class="back">← Перемена</a><a class="logo" href="./aquapark.html">аквапарк<span>✳</span></a><button id="sound" aria-label="Выключить звук">♫</button></header>
+<main id="menu" class="lobby">
+  <div class="lobby-title"><span class="summer-tag">СОЛНЦЕ · БРЫЗГИ · ПРИКЛЮЧЕНИЯ</span><h1 aria-label="Аквапарк">АКВА<span>ПАРК</span></h1><p>Лето на полной скорости!</p><div class="lobby-ticket"><span>∞</span> Бесконечное лето<br><small>Твой следующий рекорд ждёт</small></div></div>
+  <section class="lobby-card" aria-label="Начать игру"><div class="card-wave" aria-hidden="true">✦</div><div class="eyebrow">ГОТОВ К ПРИКЛЮЧЕНИЮ?</div><h2>Кто сегодня<br> поймает волну?</h2><p class="lobby-copy">Выбирай героя и вперёд за мороженым!</p>
+  <fieldset><legend class="visually-hidden">Выбери персонажа</legend><div class="skins"><button data-skin="0" aria-pressed="true" class="chosen"><span class="skin-check" aria-hidden="true">✓</span><canvas width="150" height="180"></canvas><span class="skin-name">Жёлтые носки</span></button><button data-skin="1" aria-pressed="false"><span class="skin-check" aria-hidden="true">✓</span><canvas width="150" height="180"></canvas><span class="skin-name">Красный худи</span></button></div></fieldset>
+  <button id="start" class="primary" disabled>Набираем воду…</button><div class="lobby-controls"><span><b>← →</b> Дорожки</span><span><b>↑</b> Прыжок</span><span><b>↓</b> Скольжение</span></div><p class="swipe-hint">На телефоне — управляй свайпами</p><div id="load-status" role="status"></div></section>
+</main>
+<div id="hud" hidden><div class="stat"><small>ДИСТАНЦИЯ</small><strong id="distance">0 м</strong></div><div class="stat"><small>МОРОЖЕНОЕ</small><strong id="coins">0</strong></div><button id="pause" aria-label="Пауза">Ⅱ</button><div id="power">Круг защитит один раз</div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<section id="overlay" class="panel result" hidden role="dialog" aria-modal="true" aria-labelledby="result-title"><div class="eyebrow" id="result-label">МОЖНО ВЫДОХНУТЬ</div><h2 id="result-title">На паузе</h2><p id="result-copy"></p><button id="resume" class="primary">Продолжить</button><button id="retry" class="secondary">Ещё забег</button><button id="home" class="text">Выбрать персонажа</button></section>
+<div id="touch" hidden><button data-action="left" aria-label="Влево">←</button><button data-action="right" aria-label="Вправо">→</button><button data-action="slide" aria-label="Скольжение на животе">↓</button><button data-action="jump" aria-label="Прыжок">↑</button></div>
+<footer id="footer">Лето без конца <span>✳</span> Рекорд: <b id="best">0 м</b></footer>
+<script type="module" src="/src/aqua.js"></script></body></html>

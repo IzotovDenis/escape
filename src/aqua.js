@@ -98,3 +98,6 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/10
  if(time>toastUntil)$('toast').classList.remove('show');scene.traverse(object=>{if(object.isMesh)object.frustumCulled=false;});renderer.render(scene,camera);
 }
 init().catch(e=>{$('load-status').textContent='Не удалось загрузить персонажей. Обнови страницу.';console.error(e);});requestAnimationFrame(frame);
+
+// Keep installed copies on the same current navigation cache as the school game.
+if(import.meta.env.PROD && 'serviceWorker' in navigator){navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).then(r=>r.update()).catch(console.error);}
