@@ -34,7 +34,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== self.location.origin || !url.pathname.startsWith(BASE)) return;
   event.respondWith(caches.open(CACHE).then(async cache => {
-    const key = event.request.mode === 'navigate' ? BASE + 'index.html' : event.request;
+    const key = event.request.mode === 'navigate' ? (url.pathname.endsWith('/') ? url.pathname + 'index.html' : url.pathname) : event.request;
     return (await cache.match(key, { ignoreVary: true })) || fetch(event.request);
   }));
 });
