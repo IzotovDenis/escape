@@ -1,6 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, selectLane, updateGame, startGame, pauseGame, resumeGame } from './fruit-logic.js';
+import { swipeLane } from './fruit-swipe.js';
+
+test('side swipes select lower baskets and a small upward component selects upper baskets', () => {
+  for (const start of [0, 1, 2, 3]) {
+    assert.equal(swipeLane(-40, 0, start), 1);
+    assert.equal(swipeLane(40, 3, start), 3);
+    assert.equal(swipeLane(-40, -8, start), 0);
+    assert.equal(swipeLane(40, -8, start), 2);
+    assert.equal(swipeLane(-40, 20, start), 1);
+    assert.equal(swipeLane(40, 20, start), 3);
+  }
+});
+
+test('swipes reject tap jitter, allow upward refinement, and preserve side for vertical gestures', () => {
+  assert.equal(swipeLane(4, -5, 1), null);
+  assert.equal(swipeLane(10, 10, 1), null);
+  assert.equal(swipeLane(16, -2, 1), 3);
+  assert.equal(swipeLane(30, -8, 1), 2);
+  assert.equal(swipeLane(3, -20, 1), 0);
+  assert.equal(swipeLane(-3, 20, 2), 3);
+});
 
 function seededRandom(seed = 7) {
   return () => {

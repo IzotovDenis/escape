@@ -1,6 +1,7 @@
 import './fruit.css';
 import { createGame, startGame, selectLane, updateGame, pauseGame, resumeGame } from './fruit-logic.js';
 import { createFruitScene } from './fruit-scene.js';
+import { bindFruitSwipes } from './fruit-swipe.js';
 
 const $ = id => document.getElementById(id);
 const modeButtons = [...document.querySelectorAll('[data-mode]')];
@@ -88,6 +89,7 @@ function toast(message, duration = 2.6) {
 function closeResult() { if ($('result').open) $('result').close(); }
 function start() {
   if (!scene) return;
+  resetSwipes();
   closeResult();
   game = createGame({ mode }); startGame(game);
   lastTime = performance.now();
@@ -100,6 +102,7 @@ function start() {
   $('pause').focus({ preventScroll: true });
 }
 function pause() {
+  resetSwipes();
   if (game.phase !== 'playing') return;
   pauseGame(game);
   $('result-label').textContent = 'МОЖНО ВЫДОХНУТЬ';
@@ -119,6 +122,7 @@ function resume() {
   $('pause').focus({ preventScroll: true });
 }
 function finish() {
+  resetSwipes();
   const isRecord = game.score > best;
   if (isRecord) { best = game.score; sessionBests[mode] = best; storage.set(`seven-best-${mode}`, best); }
   syncMode();
@@ -138,6 +142,7 @@ function finish() {
   $('retry').focus();
 }
 function home() {
+  resetSwipes();
   closeResult();
   game = createGame({ mode });
   $('game').hidden = true;
@@ -161,14 +166,24 @@ function chooseLane(lane) {
   syncHud();
 }
 for (const button of laneButtons) {
-  button.onpointerdown = event => { if (event.button !== 0) return; event.preventDefault(); chooseLane(Number(button.dataset.lane)); };
-  button.onclick = () => chooseLane(Number(button.dataset.lane));
+  button.onpointerdown = event => { if (event.pointerType !== 'mouse' || event.button !== 0) return; event.preventDefault(); chooseLane(Number(button.dataset.lane)); };
+  button.onclick = event => { if (event.detail === 0) chooseLane(Number(button.dataset.lane)); };
 }
 $('fruit-scene').addEventListener('pointerdown', event => {
-  if (event.button !== 0 || game.phase !== 'playing') return;
+  if (event.pointerType !== 'mouse' || event.button !== 0 || game.phase !== 'playing') return;
   event.preventDefault();
   chooseLane(scene.inputLane(event.clientX, event.clientY));
 });
+const resetSwipes = bindFruitSwipes(document.querySelector('.stage-shell'), {
+  enabled: () => game.phase === 'playing' && game.boostRemaining <= 0,
+  currentLane: () => game.lane,
+  tapLane: event => {
+    const button = event.target.closest('[data-lane]');
+    return button ? Number(button.dataset.lane) : scene.inputLane(event.clientX, event.clientY);
+  },
+  chooseLane,
+});
+window.addEventListener('resize', resetSwipes);
 window.addEventListener('keydown', event => {
   if (event.code === 'Escape' && !$('result').open && game.phase === 'playing') { event.preventDefault(); pause(); return; }
   const focusedControl = event.target instanceof Element && event.target.closest('button, a, input, select, textarea');
@@ -198,6 +213,7 @@ function frame(now) {
     if (event.type === 'spicy') { toast('Ай, остро! Осторожнее с перцем.', 2); tone(280, .11); tone(420, .1, .1); tone(180, .23, .22); if (!reducedMotion) navigator.vibrate?.([30, 40, 30]); }
     if (event.type === 'cooled' && !(game.boostRemaining > 0)) toast('Фух, отпустило!', 1.5);
     if (event.type === 'boost') {
+      resetSwipes();
       toast('ТУРБО! 15 секунд — ловлю сам!', 2);
       tone(650, .12); tone(850, .12, .09); tone(1150, .2, .18);
     }
