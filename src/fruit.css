@@ -9,6 +9,7 @@
 @media(max-width:480px){.menu-screen{padding-top:78px;padding-bottom:58px}.season-tag{font-size:6px;padding:6px 10px}h1{padding:10px 20px 14px;margin-top:15px;border-radius:24px}.title-seven{font-size:52px}.title-rush{font-size:35px}.tagline{font-size:9px;margin-top:8px}.hero-wrap{height:139px;width:200px;margin-top:7px}.hero-speech{font-size:8px;right:-30px;padding:7px 9px}.start-card{padding:25px 22px 17px}.start-card .eyebrow{font-size:7px;margin-bottom:10px}.start-card h2{font-size:25px}.intro{font-size:10px;line-height:1.5;margin:8px 0 11px}.snack-guide .food-icon{width:42px;height:42px}.snack-guide strong{font-size:9px}.snack-guide b{font-size:11px;margin-top:2px}.rule-copy{font-size:9px;margin-top:10px}.rule-copy span{font-size:9px}.mode-picker{margin:12px 0 15px}.mode-options button{padding:8px 3px;font-size:10px}.primary-button{font-size:19px;padding:13px 14px}.input-hint{display:none}.touch-hint{margin-top:17px;font-size:8px}.menu-footer{bottom:12px}.record-tag{padding:6px 12px;font-size:9px}.lane-button{width:46px;height:46px}.lane-button>span{font-size:31px}.game-toast{font-size:8px}.series-mark{font-size:6px;letter-spacing:.7px}}
 @media(max-width:360px){.menu-screen{padding-left:14px;padding-right:14px}.title-seven{font-size:46px}.title-rush{font-size:30px}.game-topbar{gap:8px}.scoreboard>div{padding:5px 9px}.score-stat svg{width:23px}.series-mark{font-size:5px;letter-spacing:.5px}.back-link{font-size:9px}.lane-button{width:44px;height:44px}}
 @media(max-height:540px) and (orientation:landscape){.site-header{padding:10px 14px}.series-mark{display:none}.back-link{padding:8px 12px;font-size:10px}.site-header .icon-button{width:37px;height:37px}.menu-screen{display:grid;grid-template-columns:minmax(0,1fr) 315px;padding:80px 32px 50px;gap:30px}.title-block{min-height:0}.title-seven{font-size:52px}.title-rush{font-size:33px}.title-block h1{padding:11px 17px 17px}.tagline{font-size:9px}.hero-wrap{height:230px;width:250px}.start-card{padding:28px 23px 17px}.start-card h2{font-size:23px}.intro{font-size:10px;margin:8px 0}.eyebrow{font-size:7px;margin-bottom:9px}.snack-guide .food-icon{width:38px;height:38px}.snack-guide strong{font-size:9px}.snack-guide b{font-size:10px}.rule-copy{font-size:9px;margin-top:10px}.mode-picker{margin:12px 0 15px}.mode-options button{padding:7px 4px;font-size:10px}.primary-button{font-size:18px;padding:12px 14px}.input-hint{display:none}.touch-hint{font-size:8px;margin-top:15px}.menu-footer{bottom:15px}.record-tag{font-size:9px;padding:5px 11px}.game-topbar{top:8px;gap:12px}.scoreboard{height:43px;border-width:2px;border-radius:13px}.scoreboard>div{padding:2px 12px}.scoreboard span{font-size:5px;margin-bottom:0}.scoreboard strong{font-size:22px;line-height:25px}.score-stat{gap:6px}.score-stat svg{width:23px;height:23px}.lives-stat>div>span{font-size:22px;line-height:26px}.level-stat strong{font-size:21px}.pause-button{width:36px;height:36px;font-size:20px}.lane-button{width:46px;height:46px;border-width:2px;border-radius:15px}.lane-button>span{font-size:32px}.lane-button kbd{display:none}.upper-left,.upper-right{top:60%}.lower-left,.lower-right{top:79%}.game-toast{top:15%;font-size:8px;padding:5px 10px}.game-footer{bottom:10px;left:10px;right:auto;flex-direction:column;gap:6px;font-size:8px}.game-footer>span{padding:5px 9px}.game-footer #combo,.game-footer .keyboard-note{display:none}.spice-indicator{top:60px;padding:3px 9px 5px 2px}.spice-indicator .food-icon{width:30px;height:30px}.spice-indicator strong{font-size:10px}.spice-indicator div>span{font-size:7px}.spice-indicator i{width:80px}.result-dialog{padding:25px 25px 15px;max-height:94dvh;overflow:auto}.result-symbol{display:none}.result-dialog h2{font-size:25px}.result-dialog p{margin:12px 0;font-size:11px}.result-stats{padding:8px 0;margin-bottom:12px}.result-stats strong{font-size:23px}.result-dialog .result-basket{font-size:9px;margin-bottom:12px}.result-dialog .primary-button{padding:12px}.secondary-button{padding:11px;margin-top:12px}.text-button{padding-top:13px}}
+.store-backdrop{filter:contrast(1.12) saturate(1.04)}
 .season-tag{display:table;margin-left:auto;margin-right:auto}
 .snack-guide{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
 .food-energy{background-image:url('/assets/seven-energy.png');background-size:auto 125%;background-position:center}
@@ -59,5 +60,51 @@
   .game-screen[data-boosted=true]:after{content:'Автоловля — можно перевести дух'}
   .stage-shell{aspect-ratio:1/1.2;border-top:3px solid #fff9e9;border-bottom:3px solid #fff9e9}
   .game-screen:before{content:'';position:absolute;top:65px;left:0;right:0;height:5px;background:linear-gradient(90deg,#f18b32 0 33.333%,#078452 33.333% 66.666%,#e34932 66.666%);opacity:.7}
+}
+/* Landscape phones get a complete start screen within the visible viewport. */
+@media(orientation:landscape) and (max-height:600px){
+  .site-header{padding:8px max(16px,env(safe-area-inset-right)) 0 max(16px,env(safe-area-inset-left));padding-top:max(8px,env(safe-area-inset-top))}
+  .site-header .icon-button{width:40px;height:40px}
+  .back-link{min-height:40px;padding:7px 13px;font-size:10px}
+  .series-mark{font-size:7px;padding:7px 10px}
+  .menu-screen{height:100dvh;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,1fr);grid-template-rows:minmax(0,1fr);gap:24px;padding:58px max(24px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));align-items:center}
+  .title-block{height:100%;min-height:0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:32px}
+  .season-tag,.tagline,.hero-speech,.store-ticket,.start-card .eyebrow,.start-card .intro,.input-hint,.footer-note{display:none}
+  .title-block h1{flex:none;margin:4px 0 10px;padding:8px 18px 13px;border-width:3px;border-radius:23px;letter-spacing:-1px}
+  .title-seven{font-size:clamp(34px,9dvh,54px)}
+  .title-rush{font-size:clamp(24px,6dvh,36px)}
+  .hero-wrap{flex:1;min-height:0;max-height:260px;width:100%;margin:0;z-index:0}
+  .hero-shadow{display:none}
+  .menu-footer{left:max(24px,env(safe-area-inset-left));right:auto;bottom:max(16px,env(safe-area-inset-bottom));width:calc((100% - 72px)/2);justify-content:center}
+  .record-tag{padding:5px 12px;font-size:10px}
+  .start-card{width:100%;max-width:440px;justify-self:center;padding:20px 16px 12px;transform:none;border-width:3px;border-radius:21px}
+  .start-card h2{font-size:24px}
+  .snack-guide{margin-top:7px;padding:4px 0 6px;gap:4px}
+  .snack-guide .food-icon{width:36px;height:36px}
+  .snack-guide strong{font-size:9px}.snack-guide b{font-size:10px;margin-top:1px}
+  .rule-copy{font-size:10px;line-height:1.35;margin:7px 0 0}
+  .rule-copy span{font-size:9px;color:#647453}.rule-copy br{display:none}
+  .mode-picker{margin:8px 0 9px}.mode-picker legend{margin-bottom:4px;color:#536e4e}
+  .mode-options{padding:3px}.mode-options button{min-height:40px;padding:6px 3px;font-size:11px;color:#536b49}
+  .start-card .primary-button{min-height:44px;padding:9px 14px;font-size:19px}
+  .touch-hint{margin:10px 0 0;font-size:9px;color:#647453}
+  .load-status{font-size:10px;margin-top:6px}
+}
+@media(orientation:landscape) and (max-height:400px){
+  .menu-screen{padding-top:52px;padding-bottom:max(10px,env(safe-area-inset-bottom));gap:18px;grid-template-columns:minmax(0,1fr) minmax(280px,1.2fr)}
+  .start-card{padding:17px 12px 10px}.start-card h2{font-size:21px}
+  .snack-guide{margin-top:4px;padding:2px 0 4px}.snack-guide .food-icon{width:28px;height:28px}
+  .rule-copy{margin-top:4px;font-size:9px}.rule-copy span{font-size:8px}
+  .mode-picker{margin:5px 0 7px}.mode-picker legend{display:none}
+  .touch-hint{margin-top:8px;font-size:8px}
+  .title-seven{font-size:34px}.title-rush{font-size:24px}
+  .menu-footer{width:calc((100% - 66px)/2.2);bottom:max(12px,env(safe-area-inset-bottom))}
+}
+@media(orientation:landscape) and (max-height:360px){
+  .start-card h2{display:none}
+  .snack-guide{margin-top:0;border-top:0;padding-top:0}
+  .start-card{padding-top:19px;padding-bottom:8px}
+  .snack-guide .food-icon{width:24px;height:24px}
+  .rule-copy{line-height:1.2}
 }
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}

@@ -331,7 +331,11 @@ export async function createFruitScene(canvas) {
     bg.setTransform(1, 0, 0, 1, 0, 0);
     // A single full-canvas store image prevents a second shop appearing at the
     // sides. Its fill is independent of the undistorted foreground coordinates.
+    // Apply the contrast once to the cached shop, keeping food and boy intact.
+    bg.save();
+    bg.filter = 'contrast(1.12) saturate(1.04)';
     bg.drawImage(store, 0, 0, pixelWidth, pixelHeight);
+    bg.restore();
     bg.setTransform(scale, 0, 0, scale, offsetX, offsetY);
     for (const rail of layout.rails) drawShelf(bg, shelf, rail);
   }
