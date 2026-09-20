@@ -4,5 +4,5 @@ import { pwaBuild } from './scripts/pwa-build.js';
 export default defineConfig({
   base: '/escape/',
   plugins: [pwaBuild()],
-  build: { rollupOptions: { input: { home: 'index.html', school: 'school.html', aqua: 'aquapark.html' }, output: { manualChunks: { three: ['three'] } } } },
+  build: { rollupOptions: { input: { home: 'index.html', school: 'school.html', aqua: 'aquapark.html', fruit: 'fruit.html', seven: 'seven.html' }, output: { manualChunks: { three: ['three'] } } } },
 });
