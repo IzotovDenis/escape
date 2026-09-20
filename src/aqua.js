@@ -1,6 +1,6 @@
 import './aqua.css';
 import * as THREE from 'three';
-import { createAquaRunner } from './aqua-runner.js';
+import { createMeshyRunner } from './meshy-runner.js';
 import { createObstacleFactory } from './aqua-obstacles.js';
 import { createSunnyPark } from './aqua-sunny.js';
 import { newRun, action, tick, height, hits, row, trackOffset, trackShader, swipeAction } from './aqua-logic.js';
@@ -52,17 +52,17 @@ async function init(){
  ctx.clearRect(0,0,canvas.width,canvas.height);
  ctx.drawImage(im,0,i*340/1254*im.height,im.width/4,340/1254*im.height,-15,0,180,180);
  });
- runner=createAquaRunner(scene,runnerTexture,slideTexture);
+ runner=await createMeshyRunner(scene,runnerTexture,slideTexture);
  park.resize(camera.aspect);
  shield=mesh(scene,torus,'#ffc94f',0,.7,2,1.03);shield.rotation.x=Math.PI/2;
  choose(skin);$('start').disabled=false;$('start').textContent='Погнали! →';
 }
 function makeItem(kind,lane,z){const g=buildObstacle(kind);g.position.set((lane-1)*3,0,z);scene.add(g);items.push({kind,lane,z,mesh:g,done:false});}
 function clear(){for(const i of items)scene.remove(i.mesh);items=[];}
-function start(){clear();run=newRun();spawn=0;state='playing';$('menu').hidden=true;$('overlay').hidden=true;$('hud').hidden=false;$('footer').hidden=true;beep();toast('← → обходи · ↑ круги и фламинго · ↓ арки');}
+function start(){clear();run=newRun();runner?.reset();spawn=0;state='playing';$('menu').hidden=true;$('overlay').hidden=true;$('hud').hidden=false;$('footer').hidden=true;beep();toast('← → обходи · ↑ круги и фламинго · ↓ арки');}
 function pause(){if(state!=='playing')return;state='paused';$('overlay').hidden=false;$('result-title').textContent='На паузе';$('result-copy').textContent='Вода подождёт. Отдохни и продолжай.';$('result-label').textContent='МОЖНО ВЫДОХНУТЬ';$('resume').hidden=false;$('resume').focus();}
 function end(){state='ended';beep(160);const d=Math.floor(run.distance);if(d>best){best=d;try{localStorage.setItem('aqua-best',String(best));}catch{}}$('best').textContent=`${best} м`;$('overlay').hidden=false;$('result-label').textContent='ВОТ ЭТО ЗАПЛЫВ!';$('result-title').textContent=`${d} метров`;$('result-copy').textContent=`Мороженое: ${run.coins} · Рекорд: ${best} м`;$('resume').hidden=true;$('retry').focus();}
-$('start').onclick=start;$('retry').onclick=start;$('pause').onclick=pause;$('resume').onclick=()=>{state='playing';$('overlay').hidden=true;};$('home').onclick=()=>{state='menu';clear();run=newRun();$('menu').hidden=false;$('overlay').hidden=true;$('hud').hidden=true;$('footer').hidden=false;$('start').focus();};
+$('start').onclick=start;$('retry').onclick=start;$('pause').onclick=pause;$('resume').onclick=()=>{state='playing';$('overlay').hidden=true;};$('home').onclick=()=>{state='menu';clear();run=newRun();runner?.reset();$('menu').hidden=false;$('overlay').hidden=true;$('hud').hidden=true;$('footer').hidden=false;$('start').focus();};
 $('sound').onclick=()=>{muted=!muted;$('sound').textContent=muted?'♪̸':'♫';$('sound').setAttribute('aria-label',muted?'Включить звук':'Выключить звук');};
 function input(name){if(state==='playing'){action(run,name);if(name==='jump')beep(450);}}
 addEventListener('keydown',e=>{const a={ArrowLeft:'left',a:'left',ArrowRight:'right',d:'right',ArrowUp:'jump',w:'jump',' ':'jump',ArrowDown:'slide',s:'slide'}[e.key];if(a&&state==='playing'){e.preventDefault();if(!e.repeat)input(a);}if(e.key==='Escape'){if(state==='playing')pause();else if(state==='paused')$('resume').click();}});
@@ -110,22 +110,24 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/10
  }
  bend.value=run.distance;
  const moving=state==='playing'||state==='menu';
- park?.update(dt,state==='menu'?-2:run.speed,moving,run.x,height(run),state==='menu');
  if(runner){
    const sliding=state!=='menu'&&run.slide>0;
    const slideProgress=.85-run.slide;
-   runner.update(dt,{x:state==='menu'?2.5:run.x,jump:height(run),slide:sliding,menu:state==='menu',moving,speed:run.speed,laneError:(run.lane-1)*3-run.x,visible:run.invincible<=0||state!=='playing'||Math.floor(time*14)%2===0});
-   shield.position.set(runner.root.position.x,sliding?.3:.65+height(run),sliding?1.3:2);shield.visible=state!=='menu'&&run.shield&&!sliding;
+   runner.update(dt,{x:state==='menu'?2.5:run.x,jump:height(run),jumping:run.jump>0,jumpProgress:run.jump>0?1-run.jump/.9:0,slide:sliding,slideProgress:sliding?1-run.slide/.85:0,menu:state==='menu',moving,speed:run.speed,laneError:(run.lane-1)*3-run.x,visible:run.invincible<=0||state!=='playing'||Math.floor(time*14)%2===0});
+   shield.position.set(runner.root.position.x,sliding?.3:.65+height(run),sliding?1.3:2);shield.visible=state!=='menu'&&run.shield&&!sliding&&!(skin===1&&run.jump>0);
    spray.visible=sliding;
    spray.position.set(run.x,0,1.4);
    spray.children.forEach((drop,i)=>{const phase=(slideProgress*3+i/12)%1;drop.position.set((i%2?1:-1)*(.45+phase*.9),.1+Math.sin(phase*Math.PI)*.3,phase*2);drop.scale.setScalar(.1*(1-phase)+.025);});
  }
+ park?.update(dt,state==='menu'?-2:run.speed,moving,run.x,skin===1?(runner?.root.userData.jumpHeight??height(run)):height(run),state==='menu',run.slide>0 ? 1-run.slide/.85 : null,skin===1?runner?.root.userData.pose?.slideBlend:undefined);
  camera.position.set(state==='menu'?4:0,state==='menu'?7:camera.aspect<.8?8.6:5.8,state==='menu'?15:camera.aspect<.8?19:12.5);camera.lookAt(state==='menu'?-3:trackOffset(run.distance,17)*.2,.7,-15);
  const targetFov=(camera.aspect<.8?70:55)+(state==='menu'?0:(run.speed-16)*.3);
  if(Math.abs(camera.fov-targetFov)>.01){camera.fov+=(targetFov-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}
  if(time>toastUntil)$('toast').classList.remove('show');scene.traverse(object=>{if(object.isMesh)object.frustumCulled=false;});renderer.render(scene,camera);
 }
 init().catch(e=>{$('load-status').textContent='Не удалось загрузить персонажей. Обнови страницу.';console.error(e);});requestAnimationFrame(frame);
+
+if(import.meta.env.DEV) window.__AQUA__=()=>({state,skin,...run,pose:runner?.root.userData.pose});
 
 // Keep installed copies on the same current navigation cache as the school game.
 if(import.meta.env.PROD && 'serviceWorker' in navigator){navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).then(r=>r.update()).catch(console.error);}

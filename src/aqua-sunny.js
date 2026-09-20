@@ -101,19 +101,23 @@ export async function createSunnyPark(scene, renderer, bend, material) {
     }
   }
   // Soft, transparent contact shadow stays attached to the runner.
-  const shadow=new THREE.Mesh(new THREE.PlaneGeometry(2.1,1.3),new THREE.ShaderMaterial({transparent:true,depthWrite:false,
+  const shadow=new THREE.Mesh(new THREE.PlaneGeometry(2.1,1.3),new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{opacity:{value:1}},
     vertexShader:`varying vec2 v;void main(){v=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`varying vec2 v;void main(){float a=(1.-smoothstep(.08,.5,length(v-.5)))*.26;gl_FragColor=vec4(.06,.17,.15,a);}`
+    fragmentShader:`uniform float opacity;varying vec2 v;void main(){float a=(1.-smoothstep(.08,.5,length(v-.5)))*.26*opacity;gl_FragColor=vec4(.06,.17,.15,a);}`
   }));shadow.rotation.x=-Math.PI/2;shadow.position.y=.05;root.add(shadow);
   let distance=0;
   return {
-    update(dt,speed,active,playerX,jump,menu){
+    update(dt,speed,active,playerX,jump,menu,slideProgress=null,slideBlend){
       if(active){clock.value+=dt;distance+=speed*dt;// Plane UV +V points toward -Z. Positive offset moves the pattern toward +Z,
         // matching obstacles and scenery approaching the camera.
         tiles.offset.y=(distance/10)%1;
         for(const g of chunks){g.position.z+=speed*dt;if(g.position.z>28)g.position.z-=192;else if(g.position.z<=-164)g.position.z+=192;}
       }
-      shadow.position.x=playerX;shadow.position.z=2;shadow.scale.setScalar(1-jump*.12);shadow.visible=!menu;
+      const sliding=slideBlend??(slideProgress===null?0:THREE.MathUtils.smoothstep(slideProgress,0,.18)*(1-THREE.MathUtils.smoothstep(slideProgress,.82,1)));
+      shadow.position.x=playerX;shadow.position.z=2;
+      shadow.scale.set(1+jump*.09-sliding*.1,1+jump*.12+sliding*.7,1);
+      shadow.material.uniforms.opacity.value=1-jump*.2;
+      shadow.visible=!menu;
     },
     resize(aspect){
       // Cover the viewport without distorting the source image. Keep the same
