@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test src/game.test.js src/aqua.test.js src/red-runner-motion.test.js src/fruit.test.js"
+    "test": "node --test src/game.test.js src/aqua.test.js src/red-runner-motion.test.js src/fruit.test.js src/shop.test.js"
   },
   "dependencies": { "three": "^0.180.0" },
   "devDependencies": { "vite": "^7.1.5" }

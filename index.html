@@ -1,55 +1,16 @@
 <!doctype html>
 <html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#00824e">
-  <meta name="description" content="Лови пончики и горячие тостики в тайском мини-маркете. Но осторожнее с чили! Игра для телефона и компьютера.">
-  <title>Севен-переполох — лови свой перекус</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-</head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f8f3e8"><meta name="description" content="Четыре маленьких приключения: Перемена, Аквапарк, Севен-переполох и За перекусом. Играй на телефоне или компьютере."><link rel="icon" href="./favicon.svg" type="image/svg+xml"><link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./icons/apple-touch-icon.png"><title>Солнечные игры — выбирай приключение</title></head>
 <body>
-  <div class="store-backdrop" aria-hidden="true"></div>
-  <header class="site-header">
-    <a class="back-link" href="./aquapark.html"><span aria-hidden="true">←</span> Аквапарк</a>
-    <span class="series-mark"><span class="stripe-mark" aria-hidden="true"></span> СОЛНЕЧНЫЕ ИГРЫ</span>
-    <button id="sound" class="icon-button" aria-label="Выключить звук" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Zm4 3c2 2 2 6 0 8m3-11c4 4 4 10 0 14"/></svg></button>
-  </header>
-  <main>
-    <section id="menu" class="menu-screen" aria-label="Главное меню">
-      <div class="title-block">
-        <span class="season-tag">ТАЙЛАНД · ПЕРЕКУС · РЕКОРДЫ</span>
-        <h1><span class="title-seven">СЕВЕН</span><span class="title-rush">ПЕРЕПОЛОХ</span></h1>
-        <p class="tagline">Зашёл за тостиком. Началось приключение.</p>
-        <div class="hero-wrap"><div class="hero-shadow"></div><canvas id="menu-hero" width="500" height="540" aria-label="Мальчик Жёлтые носки с красной корзинкой"></canvas><span class="hero-speech">Только без острого!</span></div>
-      </div>
-      <section class="start-card" aria-labelledby="start-title">
-        <div class="card-stripes" aria-hidden="true"><i></i><i></i><i></i></div>
-        <div class="store-ticket"><b>OPEN</b><span>24/7</span></div>
-        <div class="eyebrow">КОРЗИНКА ГОТОВА?</div>
-        <h2 id="start-title">Лови свой перекус!</h2>
-        <p class="intro">Четыре ленты. Две быстрые руки.<br>И кое-что очень острое…</p>
-        <div class="snack-guide" aria-label="Пончик плюс одно очко, тостик плюс два, чили делает лицо красным, Red Bull даёт 15 секунд турбо и автоловли"><div><span class="food-icon food-donut" aria-hidden="true"></span><strong>Пончик <b>+1</b></strong></div><div><span class="food-icon food-toast" aria-hidden="true"></span><strong>Тостик <b>+2</b></strong></div><div class="pepper-guide"><span class="food-icon food-chili" aria-hidden="true"></span><strong>Чили <b>Остро!</b></strong></div><div class="energy-guide"><span class="food-icon food-energy" aria-hidden="true"></span><strong>Red Bull <b>Турбо 15 с</b></strong></div></div>
-        <p class="rule-copy">Лови еду, пропускай перец. <span>Темп растёт. Red Bull — редкая автоловля.<br>Три промаха — и на кассу!</span></p>
-        <fieldset class="mode-picker"><legend>Выбери темп</legend><div class="mode-options"><button type="button" data-mode="classic" class="chosen" aria-pressed="true">⚡ Час пик</button><button type="button" data-mode="relaxed" aria-pressed="false">☀ Без спешки</button></div></fieldset>
-        <button id="start" class="primary-button" disabled><span>Расставляем продукты…</span><span aria-hidden="true">→</span></button>
-        <div class="input-hint"><span class="key-pair"><kbd>Q</kbd><kbd>A</kbd></span><span>слева</span><i></i><span class="key-pair"><kbd>E</kbd><kbd>D</kbd></span><span>справа</span></div>
-        <p class="touch-hint">Свайп вбок — вниз, вбок и чуть вверх — наверх</p>
-        <p id="load-status" class="load-status" role="status"></p>
-      </section>
-      <div class="menu-footer"><span class="record-tag"><span aria-hidden="true">★</span> Твой рекорд: <b id="menu-best">0</b></span><span class="footer-note">Жёлтые носки в большом маленьком магазине</span></div>
-    </section>
-    <section id="game" class="game-screen" aria-label="Ловля пончиков и тостиков" hidden>
-      <div class="game-topbar"><div class="scoreboard"><div class="score-stat"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="m6 12 4-8m16 8-4-8M3 12h26l-3 16H6L3 12Zm6 5 1 6m6-6v6m7-6-1 6"/></svg><div><span>ОЧКИ</span><strong id="score">0</strong></div></div><div class="lives-stat"><span>ЖИЗНИ</span><div id="lives" aria-label="3 жизни"><span>♥</span><span>♥</span><span>♥</span></div></div><div class="level-stat"><span>УРОВЕНЬ</span><strong id="level">1</strong></div></div><button id="pause" class="icon-button pause-button" aria-label="Пауза">Ⅱ</button></div>
-      <div class="stage-area"><div class="stage-shell"><canvas id="fruit-scene" width="1000" height="700" aria-label="Четыре ленты с пончиками, сэндвичами, перцем и редкими бутылочками Red Bull. Подставляй корзинку клавишами Q, A, E, D или кнопками по краям."></canvas><div class="lane-controls" role="group" aria-label="Позиция корзинки"><button data-lane="0" class="lane-button upper-left" aria-label="Корзинка слева вверху, Q" aria-pressed="false"><span>↖</span><kbd>Q</kbd></button><button data-lane="1" class="lane-button lower-left" aria-label="Корзинка слева внизу, A" aria-pressed="true"><span>↙</span><kbd>A</kbd></button><button data-lane="2" class="lane-button upper-right" aria-label="Корзинка справа вверху, E" aria-pressed="false"><span>↗</span><kbd>E</kbd></button><button data-lane="3" class="lane-button lower-right" aria-label="Корзинка справа внизу, D" aria-pressed="false"><span>↘</span><kbd>D</kbd></button></div><div id="toast" class="game-toast" role="status" aria-live="polite"></div></div></div>
-      <div class="effect-indicators">
-      <div id="spice-indicator" class="spice-indicator" hidden role="status"><span class="food-icon food-chili" aria-hidden="true"></span><div><strong>ОСТРО!</strong><span>Сейчас пройдёт…</span><i><b id="spice-meter"></b></i></div></div>
-      <div id="boost-indicator" class="boost-indicator" hidden><span class="food-icon food-energy" aria-hidden="true"></span><div><strong>ТУРБО <span id="boost-countdown">15 с</span></strong><span id="boost-hint">Автоловля · скорость ×4</span><i><b id="boost-meter"></b></i></div></div>
-      </div>
-      <div class="game-footer"><span id="game-best">Рекорд: 0</span><span id="combo">Пончик +1 · тостик +2</span><span class="keyboard-note">Q / A · E / D <i>или стрелки</i></span></div>
-    </section>
-  </main>
-  <dialog id="result" class="result-dialog" aria-labelledby="result-title"><div class="card-stripes" aria-hidden="true"><i></i><i></i><i></i></div><div class="result-symbol" aria-hidden="true">Ⅱ</div><div id="result-label" class="eyebrow">МОЖНО ВЫДОХНУТЬ</div><h2 id="result-title">Перерыв на перекус</h2><p id="result-copy">Пончики подождут. Возвращайся, когда будешь готов.</p><div id="result-stats" class="result-stats" hidden><div><strong id="final-score">0</strong><span>очков</span></div><div><strong id="final-combo">0</strong><span>подряд</span></div><div><strong id="final-best">0</strong><span>рекорд</span></div></div><p id="result-basket" class="result-basket" hidden></p><button id="resume" class="primary-button">Продолжить <span aria-hidden="true">→</span></button><button id="retry" class="secondary-button">Начать заново</button><button id="home" class="text-button">В главное меню</button></dialog>
-  <script type="module" src="/src/fruit.js"></script>
-</body>
-</html>
+<header class="hub-header"><a class="hub-brand" href="./index.html"><span aria-hidden="true">✳</span> солнечные игры</a><span class="header-note">МАЛЕНЬКИЕ ПРИКЛЮЧЕНИЯ. БОЛЬШОЕ ЛЕТО.</span></header>
+<main>
+<section class="intro"><div><p class="eyebrow">ТВОИ ИГРЫ В ОДНОМ МЕСТЕ</p><h1>Куда отправимся<br><em>сегодня?</em></h1></div><p class="intro-copy">Побегать по школе, поймать волну<br>или заглянуть за вкусным.<br><strong>Выбирай — и начинаем!</strong></p></section>
+<section class="games" aria-label="Все игры">
+<a class="game-card shop" href="./shop.html" aria-label="Играть в За перекусом"><div class="game-art shop-art"><span class="badge new">НОВАЯ ИГРА</span><div class="shop-sign">7 <small>ELEVEN</small></div><span class="art-label">ТАИЛАНД · МАЛЕНЬКИЙ МАГАЗИН</span></div><div class="game-copy"><div class="game-meta">01 / ИССЛЕДУЙ И СОБИРАЙ <span>3D</span></div><h2>За перекусом</h2><p>Чипсы, пончики, сэндвичи и кола.<br>Собери список и возвращайся к кассе.</p><div class="play-line"><span>Взять корзинку</span><span class="arrow" aria-hidden="true">↗</span></div></div></a>
+<a class="game-card school" href="./school.html" aria-label="Играть в Перемену"><div class="game-art school-art"><span class="badge">ШКОЛЬНЫЕ ДОГОНЯЛКИ</span><div class="school-scene" aria-hidden="true"><div class="blackboard">ПЕРЕМЕНА!<small>20 тетрадей → выход</small></div><div class="notebook book-one">А Б В<br>1 2 3</div><div class="notebook book-two">✳</div><div class="school-floor"></div></div><span class="art-label">ЗВОНОК УЖЕ ПРОЗВЕНЕЛ</span></div><div class="game-copy"><div class="game-meta">02 / БЕГАЙ И ИЩИ <span>3D</span></div><h2>Перемена</h2><p>Найди все тетради, познакомься с котиками<br>и не дай себя догнать!</p><div class="play-line"><span>В школу</span><span class="arrow" aria-hidden="true">↗</span></div></div></a>
+<a class="game-card aqua" href="./aquapark.html" aria-label="Играть в Аквапарк"><div class="game-art aqua-art"><span class="badge">ЛЕТО НА СКОРОСТИ</span><span class="art-label">СОЛНЦЕ · БРЫЗГИ · МОРОЖЕНОЕ</span></div><div class="game-copy"><div class="game-meta">03 / ПРЫГАЙ И СКОЛЬЗИ <span>РАННЕР</span></div><h2>Аквапарк</h2><p>Обходи препятствия, собирай мороженое<br>и побей свой рекорд.</p><div class="play-line"><span>Поймать волну</span><span class="arrow" aria-hidden="true">↗</span></div></div></a>
+<a class="game-card seven" href="./seven.html" aria-label="Играть в Севен-переполох"><div class="game-art seven-art"><span class="badge">ТОЛЬКО БЕЗ ОСТРОГО!</span><div class="snacks" aria-hidden="true"><i class="donut"></i><i class="sandwich"></i></div><span class="art-label">ЧЕТЫРЕ ЛЕНТЫ · ОДНА КОРЗИНКА</span></div><div class="game-copy"><div class="game-meta">04 / ЛОВИ ПЕРЕКУСЫ <span>АРКАДА</span></div><h2>Севен-переполох</h2><p>Подставляй корзинку под пончики и тостики.<br>Осторожнее с перцем!</p><div class="play-line"><span>Ловить вкусное</span><span class="arrow" aria-hidden="true">↗</span></div></div></a>
+</section>
+<footer class="hub-footer"><span>На телефоне и компьютере <span aria-hidden="true">↗</span></span><span>Для 3D-игр удобнее повернуть телефон набок.</span></footer>
+</main><script type="module" src="/src/hub.js"></script>
+</body></html>
