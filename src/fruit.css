@@ -111,3 +111,5 @@
 
 /* Gestures also work when they begin over the lane buttons. */
 .stage-shell{touch-action:none;user-select:none;-webkit-user-select:none}
+
+.lives-stat #lives.protected>span:not(.lost){color:#1688aa;text-shadow:0 0 8px #71dff0}

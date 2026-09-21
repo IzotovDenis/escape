@@ -5,7 +5,6 @@ import { bindFruitSwipes } from './fruit-swipe.js';
 
 const $ = id => document.getElementById(id);
 const modeButtons = [...document.querySelectorAll('[data-mode]')];
-const laneButtons = [...document.querySelectorAll('[data-lane]')];
 const storage = {
   get(key, fallback) { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } },
   set(key, value) { try { localStorage.setItem(key, String(value)); } catch {} },
@@ -67,19 +66,19 @@ let lastHud = '';
 function syncHud() {
   const boosted = game.boostRemaining > 0;
   const tempo = ((game.speedMultiplier || 1) * (game.boostMultiplier || 1)).toFixed(2);
-  const hud = `${game.score}/${game.lives}/${game.level}/${game.combo}/${game.lane}/${tempo}/${boosted}`;
+  const protection = Math.ceil(game.protectionRemaining);
+  const hud = `${protection}/${game.score}/${game.lives}/${game.level}/${game.combo}/${game.lane}/${tempo}/${boosted}`;
   if (hud === lastHud) return;
   lastHud = hud;
   $('score').textContent = game.score;
   $('level').textContent = game.level;
-  $('lives').setAttribute('aria-label', `Жизней: ${game.lives} из 3`);
+  $('lives').setAttribute('aria-label', `Жизней: ${game.lives} из 3${protection ? '. Защита от потери жизни' : ''}`);
+  $('lives-label').textContent = protection ? `ЩИТ · ${protection} с` : 'ЖИЗНИ';
+  $('lives').classList.toggle('protected', protection > 0);
   [...$('lives').children].forEach((heart, i) => heart.classList.toggle('lost', i >= game.lives));
   $('combo').textContent = boosted ? `Автоловля · темп ×${tempo}` : `${game.combo >= 3 ? `${game.combo} подряд · ` : ''}Темп ×${tempo}`;
   $('game').dataset.boosted = String(boosted);
-  for (const button of laneButtons) {
-    button.setAttribute('aria-pressed', String(Number(button.dataset.lane) === game.lane));
-    button.setAttribute('aria-disabled', String(boosted));
-  }
+
 }
 function toast(message, duration = 2.6) {
   $('toast').textContent = message;
@@ -165,10 +164,7 @@ function chooseLane(lane) {
   if (game.lane !== previous) tone(240 + lane * 30, .045, 0, .006);
   syncHud();
 }
-for (const button of laneButtons) {
-  button.onpointerdown = event => { if (event.pointerType !== 'mouse' || event.button !== 0) return; event.preventDefault(); chooseLane(Number(button.dataset.lane)); };
-  button.onclick = event => { if (event.detail === 0) chooseLane(Number(button.dataset.lane)); };
-}
+
 $('fruit-scene').addEventListener('pointerdown', event => {
   if (event.pointerType !== 'mouse' || event.button !== 0 || game.phase !== 'playing') return;
   event.preventDefault();
@@ -177,10 +173,7 @@ $('fruit-scene').addEventListener('pointerdown', event => {
 const resetSwipes = bindFruitSwipes(document.querySelector('.stage-shell'), {
   enabled: () => game.phase === 'playing' && game.boostRemaining <= 0,
   currentLane: () => game.lane,
-  tapLane: event => {
-    const button = event.target.closest('[data-lane]');
-    return button ? Number(button.dataset.lane) : scene.inputLane(event.clientX, event.clientY);
-  },
+  tapLane: event => scene.inputLane(event.clientX, event.clientY),
   chooseLane,
 });
 window.addEventListener('resize', resetSwipes);
@@ -208,7 +201,7 @@ function frame(now) {
   const events = updateGame(game, dt);
   for (const event of events) {
     if (event.type === 'catch') tone(680 + game.combo % 6 * 90, .13);
-    if (event.type === 'miss') { tone(155, .22, 0, .035); if (!reducedMotion) navigator.vibrate?.(35); }
+    if (event.type === 'miss') { if (event.lives > 0) toast('Ничего страшного! Щит на 2 секунды', 2); tone(155, .22, 0, .035); if (!reducedMotion) navigator.vibrate?.(35); }
     if (event.type === 'level' && !(game.boostRemaining > 0)) { toast(`Уровень ${game.level} · всё быстрее!`); tone(1000, .15, .1); }
     if (event.type === 'spicy') { toast('Ай, остро! Осторожнее с перцем.', 2); tone(280, .11); tone(420, .1, .1); tone(180, .23, .22); if (!reducedMotion) navigator.vibrate?.([30, 40, 30]); }
     if (event.type === 'cooled' && !(game.boostRemaining > 0)) toast('Фух, отпустило!', 1.5);

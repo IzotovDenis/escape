@@ -5,6 +5,9 @@ const SPICY_DURATION = 4;
 const BOOST_DURATION = 15;
 const BOOST_SPAWN_INTERVAL = 0.2;
 const BASE_TRAVEL = 3.1;
+const ASSIST_START = 0.6;
+const ASSIST_SPEED = 3;
+const MISS_PROTECTION_DURATION = 2;
 const BASE_SPAWN = 1.1;
 const SPEED_GAIN = 2.4;
 const SPEED_RAMP_SECONDS = 150;
@@ -45,6 +48,7 @@ function refreshTiming(game) {
   game.speedMultiplier = ordinarySpeed(game.elapsed);
   game.boostRemaining = Math.max(0, game.boostUntil - game.elapsed);
   game.spicyRemaining = Math.max(0, game.spicyUntil - game.elapsed);
+  game.protectionRemaining = Math.max(0, game.protectedUntil - game.elapsed);
   game.spawnInterval = game.boostMultiplier === 4 ? BOOST_SPAWN_INTERVAL : game.baseSpawn / game.speedMultiplier;
   game.travelTime = timeAtMotion(game, game.motion + game.baseTravel) - game.elapsed;
   if (game.nextSpawnMotion !== null) game.nextSpawnAt = timeAtMotion(game, game.nextSpawnMotion);
@@ -56,12 +60,38 @@ function refreshTiming(game) {
   if (game.lastArrivalMotion !== null) game.lastArrivalAt = timeAtMotion(game, game.lastArrivalMotion);
 }
 
+// Only the front item can approach faster, so later food never overtakes it.
+function assistCandidate(game) {
+  const fruit = game.fruits[0];
+  return game.catchAssist && game.boostMultiplier === 1 && fruit
+    && fruit.lane === game.lane && SNACK_KINDS.includes(fruit.kind) ? fruit : null;
+}
+function syncCatchAssist(game) {
+  const fruit = game.fruits[0];
+  if (!fruit) return;
+  const active = assistCandidate(game) === fruit && fruit.progress >= ASSIST_START - 1e-12;
+  if (Boolean(fruit.assisted) === active) return;
+  // Re-anchor at the current position: switching baskets never teleports food.
+  const span = game.baseTravel / (active ? ASSIST_SPEED : 1);
+  fruit.bornMotion = game.motion - fruit.progress * span;
+  fruit.arrivalMotion = game.motion + (1 - fruit.progress) * span;
+  fruit.assisted = active;
+  refreshTiming(game);
+}
+function nextAssistTime(game) {
+  const fruit = assistCandidate(game);
+  if (!fruit || fruit.assisted) return Infinity;
+  return timeAtMotion(game, fruit.bornMotion
+    + ASSIST_START * (fruit.arrivalMotion - fruit.bornMotion));
+}
+
 /** Mutable, browser-independent state. All times, including dt, are seconds. */
-export function createGame({ mode = 'classic', random = Math.random } = {}) {
+export function createGame({ mode = 'classic', random = Math.random, catchAssist = true } = {}) {
   const normalizedMode = mode === 'relaxed' ? 'relaxed' : 'classic';
   const relaxation = normalizedMode === 'relaxed' ? 1.35 : 1;
   const game = {
-    mode: normalizedMode, random, phase: 'ready', score: 0, lives: 3,
+    mode: normalizedMode, random, catchAssist, phase: 'ready', score: 0, lives: 3,
+    protectedUntil: 0, protectionRemaining: 0,
     combo: 0, bestCombo: 0, caught: 0, donuts: 0, sandwiches: 0,
     peppersCaught: 0, avoidedPeppers: 0, spicyUntil: 0, spicyRemaining: 0,
     boostsCaught: 0, boostUntil: 0, boostRemaining: 0, boostMultiplier: 1,
@@ -75,12 +105,15 @@ export function createGame({ mode = 'classic', random = Math.random } = {}) {
   return game;
 }
 export function startGame(game) {
-  Object.assign(game, createGame({ mode: game.mode, random: game.random }), { phase: 'playing' });
+  Object.assign(game, createGame({ mode: game.mode, random: game.random, catchAssist: game.catchAssist }), { phase: 'playing' });
   return game;
 }
 export function selectLane(game, lane) {
   if ((game.phase === 'ready' || game.phase === 'playing') && game.boostMultiplier !== 4
-    && Number.isInteger(lane) && lane >= 0 && lane < 4) game.lane = lane;
+    && Number.isInteger(lane) && lane >= 0 && lane < 4) {
+    game.lane = lane;
+    syncCatchAssist(game);
+  }
   return game;
 }
 export function pauseGame(game) {
@@ -198,8 +231,16 @@ function resolveFruit(game, events) {
       events.push({ type: 'level', level: game.level, at: game.elapsed });
     }
   } else {
-    game.lives -= 1;
     game.combo = 0;
+    if (game.elapsed < game.protectedUntil) {
+      events.push({ ...event, type: 'protected-miss', lives: game.lives });
+      return;
+    }
+    game.lives -= 1;
+    if (game.lives > 0) {
+      game.protectedUntil = game.elapsed + MISS_PROTECTION_DURATION;
+      game.protectionRemaining = MISS_PROTECTION_DURATION;
+    }
     events.push({ ...event, type: 'miss', lives: game.lives });
     if (game.lives === 0) {
       game.phase = 'over';
@@ -213,11 +254,12 @@ export function updateGame(game, dt) {
   const events = [];
   if (game.phase !== 'playing' || !Number.isFinite(dt) || dt <= 0) return events;
   const target = game.elapsed + dt;
+  syncCatchAssist(game);
   while (game.phase === 'playing') {
     const nextArrival = game.fruits[0]?.arrivalAt ?? Infinity;
     const nextCooling = game.spicyUntil > 0 ? game.spicyUntil : Infinity;
     const nextBoostEnd = game.boostUntil > 0 ? game.boostUntil : Infinity;
-    const nextEvent = Math.min(nextArrival, game.nextSpawnAt, nextCooling, nextBoostEnd);
+    const nextEvent = Math.min(nextArrival, game.nextSpawnAt, nextCooling, nextBoostEnd, nextAssistTime(game));
     if (nextEvent > target) break;
     game.elapsed = nextEvent;
     refreshTiming(game);
@@ -230,11 +272,13 @@ export function updateGame(game, dt) {
     if (nextArrival <= nextEvent) resolveFruit(game, events);
     if (game.phase === 'playing' && game.nextSpawnAt <= nextEvent) spawnFruit(game, events);
     autoSelectLane(game);
+    syncCatchAssist(game);
   }
   if (game.phase === 'playing') {
     game.elapsed = target;
     refreshTiming(game);
     autoSelectLane(game);
+    syncCatchAssist(game);
   }
   return events;
 }

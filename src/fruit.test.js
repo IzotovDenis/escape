@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, selectLane, updateGame, startGame, pauseGame, resumeGame } from './fruit-logic.js';
+import { createGame as createAssistedGame, selectLane, updateGame, startGame, pauseGame, resumeGame } from './fruit-logic.js';
 import { swipeLane } from './fruit-swipe.js';
 
 test('side swipes select lower baskets and a small upward component selects upper baskets', () => {
@@ -29,6 +29,9 @@ function seededRandom(seed = 7) {
     return seed / 2 ** 32;
   };
 }
+
+// Keep the original timing contracts covered with assistance disabled.
+const createGame = (options = {}) => createAssistedGame({ ...options, catchAssist: false });
 
 // Two random draws per item: its lane, then its kind.
 function fixedLaneRandom(lane = 0, kindRandom = () => 0) {
@@ -541,4 +544,125 @@ test('boost activation, automatic catches and expiry are independent of frame si
   assert.ok(wholeEvents.some(event => event.type === 'boost-end'));
   assert.deepEqual(splitEvents, wholeEvents);
   assert.deepEqual({ ...split, random: undefined }, { ...whole, random: undefined });
+});
+
+test('basket assistance accelerates only the nearest snack, continuously, and scores sooner', () => {
+  for (const mode of ['classic', 'relaxed']) for (const lane of [0, 1, 2, 3]) {
+    const game = startGame(createAssistedGame({ mode, random: fixedLaneRandom(lane) }));
+    selectLane(game, (lane + 1) % 4);
+    const first = nextArrival(game);
+    while (first.progress < 0.7) updateGame(game, 0.01);
+    const before = game.fruits.map(fruit => ({ ...fruit }));
+    selectLane(game, lane);
+    assert.ok(first.assisted);
+    assert.ok(Math.abs(first.progress - before[0].progress) < 1e-12);
+    assert.ok(first.arrivalAt < before[0].arrivalAt);
+    assert.equal(game.score, 0);
+    for (let i = 1; i < before.length; i++) {
+      assert.equal(game.fruits[i].arrivalAt, before[i].arrivalAt);
+      assert.equal(game.fruits[i].progress, before[i].progress);
+    }
+    const events = updateGame(game, first.arrivalAt - game.elapsed);
+    assert.equal(events.filter(event => event.type === 'catch').length, 1);
+    assert.equal(game.score, 1);
+    assert.equal(game.lives, 3);
+  }
+});
+
+test('leaving the lane cancels assistance smoothly; later food and hazards do not attract', () => {
+  const game = startGame(createAssistedGame({ random: fixedLaneRandom(0) }));
+  const first = nextArrival(game);
+  while (first.progress < 0.7) updateGame(game, 0.01);
+  const second = game.fruits[1];
+  second.lane = 2;
+  const secondDeadline = second.arrivalAt;
+  selectLane(game, 2);
+  assert.equal(second.arrivalAt, secondDeadline);
+  assert.ok(!second.assisted);
+  for (const kind of ['chili', 'energy']) {
+    first.kind = kind;
+    const deadline = first.arrivalAt;
+    selectLane(game, 0);
+    assert.ok(!first.assisted);
+    assert.equal(first.arrivalAt, deadline);
+  }
+  first.kind = 'donut-pink';
+  selectLane(game, 0);
+  updateGame(game, 0.02);
+  const progress = first.progress;
+  const assistedDeadline = first.arrivalAt;
+  selectLane(game, 1);
+  assert.ok(!first.assisted);
+  assert.ok(Math.abs(first.progress - progress) < 1e-12);
+  assert.ok(first.arrivalAt > assistedDeadline);
+  const events = updateGame(game, first.arrivalAt - game.elapsed);
+  assert.equal(events.filter(event => event.type === 'miss').length, 1);
+  assert.equal(game.score, 0);
+});
+
+test('assistance, peppers and boost keep identical event timing across frame sizes', () => {
+  const whole = startGame(createAssistedGame({ random: fixedLaneRandom(0, () => 0.99) }));
+  const split = startGame(createAssistedGame({ random: fixedLaneRandom(0, () => 0.99) }));
+  selectLane(whole, 0);
+  selectLane(split, 0);
+  const events = updateGame(whole, 70);
+  const splitEvents = [];
+  for (let i = 0; i < 560; i++) splitEvents.push(...updateGame(split, 0.125));
+  assert.ok(events.some(event => event.type === 'boost'));
+  assert.ok(events.some(event => event.type === 'boost-end'));
+  assert.ok(events.some(event => event.type === 'spicy'));
+  assert.deepEqual(splitEvents, events);
+  assert.deepEqual({ ...split, random: undefined }, { ...whole, random: undefined });
+  // After autopilot dodges a pepper, manual play must resume on the right lane.
+  startGame(split);
+  selectLane(split, 0);
+  updateGame(split, 2.5);
+  assert.ok(split.fruits[0].assisted);
+  pauseGame(split);
+  const snapshot = structuredClone({ ...split, random: undefined });
+  updateGame(split, 20);
+  assert.deepEqual({ ...split, random: undefined }, snapshot);
+  startGame(split);
+  assert.equal(split.catchAssist, true);
+  assert.equal(split.score, 0);
+  assert.deepEqual(split.fruits, []);
+});
+
+test('a lost heart gives two seconds of protection; protected misses do not extend it', () => {
+  const game = startGame(createAssistedGame({ random: fixedLaneRandom(0) }));
+  const miss = avoidNext(game).find(event => event.type === 'miss');
+  assert.equal(game.lives, 2);
+  assert.equal(game.protectedUntil, miss.at + 2);
+  const deadline = game.protectedUntil;
+  const protectedEvents = avoidNext(game);
+  assert.ok(protectedEvents.some(event => event.type === 'protected-miss'));
+  assert.equal(game.lives, 2);
+  assert.equal(game.protectedUntil, deadline);
+  assert.ok(game.protectionRemaining > 0);
+  const snapshot = structuredClone({ ...game, random: undefined });
+  pauseGame(game);
+  updateGame(game, 10);
+  assert.equal(game.protectionRemaining, snapshot.protectionRemaining);
+  resumeGame(game);
+  const events = updateGame(game, 20);
+  const losses = events.filter(event => event.type === 'miss');
+  assert.equal(losses.length, 2);
+  assert.ok(losses[0].at >= deadline);
+  assert.ok(losses[1].at >= losses[0].at + 2);
+  assert.equal(game.phase, 'over');
+  startGame(game);
+  assert.equal(game.protectedUntil, 0);
+  assert.equal(game.protectionRemaining, 0);
+  assert.equal(game.lives, 3);
+});
+
+test('loss protection behaves identically with large and small time steps', () => {
+  const whole = startGame(createAssistedGame({ random: fixedLaneRandom(0) }));
+  const split = startGame(createAssistedGame({ random: fixedLaneRandom(0) }));
+  const events = updateGame(whole, 20);
+  const splitEvents = [];
+  for (let i = 0; i < 160; i++) splitEvents.push(...updateGame(split, 0.125));
+  assert.ok(events.some(event => event.type === 'protected-miss'));
+  assert.deepEqual(events, splitEvents);
+  assert.deepEqual({ ...whole, random: undefined }, { ...split, random: undefined });
 });
