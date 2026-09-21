@@ -158,7 +158,32 @@ function makeFoodSprites(atlas) {
   const sx = atlas.width / 1254;
   const sy = atlas.height / 1254;
   return Object.fromEntries(Object.entries(boxes).map(([kind, [x, y, width, height]]) =>
-    [kind, trimCell(atlas, { x: x * sx, y: y * sy, width: width * sx, height: height * sy })]));
+    [kind, outlineFood(trimCell(atlas, { x: x * sx, y: y * sy, width: width * sx, height: height * sy }))]));
+}
+
+// Bake the two-tone silhouette once, so moving food needs only one draw call.
+function outlineFood(sprite) {
+  const factor = 256 / Math.max(sprite.width, sprite.height);
+  const width = Math.round(sprite.width * factor);
+  const height = Math.round(sprite.height * factor);
+  const padding = 10;
+  const mask = document.createElement('canvas');
+  mask.width = width; mask.height = height;
+  const ink = mask.getContext('2d');
+  ink.drawImage(sprite.image, sprite.x, sprite.y, sprite.width, sprite.height, 0, 0, width, height);
+  const image = document.createElement('canvas');
+  image.width = width + padding * 2; image.height = height + padding * 2;
+  const pen = image.getContext('2d');
+  for (const [radius, color] of [[8, '#fff5dc'], [4, '#503727']]) {
+    ink.globalCompositeOperation = 'source-in';
+    ink.fillStyle = color; ink.fillRect(0, 0, width, height);
+    for (let i = 0; i < 24; i += 1) {
+      const angle = i * TAU / 24;
+      pen.drawImage(mask, padding + Math.cos(angle) * radius, padding + Math.sin(angle) * radius);
+    }
+  }
+  pen.drawImage(sprite.image, sprite.x, sprite.y, sprite.width, sprite.height, padding, padding, width, height);
+  return { image, x: padding, y: padding, width, height, padding };
 }
 
 function proceduralSnack(ctx, kind) {
@@ -253,7 +278,11 @@ function drawSnack(ctx, sprites, kind, x, y, size = 60, rotation = 0, alpha = 1,
     const ratio = size / Math.max(sprite.width, sprite.height);
     const w = sprite.width * ratio;
     const h = sprite.height * ratio;
-    ctx.drawImage(sprite.image, sprite.x, sprite.y, sprite.width, sprite.height, -w / 2, -h / 2, w, h);
+    const padding = sprite.padding || 0;
+    ctx.drawImage(sprite.image, sprite.x - padding, sprite.y - padding,
+      sprite.width + padding * 2, sprite.height + padding * 2,
+      -w / 2 - padding * ratio, -h / 2 - padding * ratio,
+      w + padding * ratio * 2, h + padding * ratio * 2);
   } else {
     ctx.scale(size / 60, size / 60);
     proceduralSnack(ctx, kind);
@@ -331,11 +360,35 @@ export async function createFruitScene(canvas) {
     bg.setTransform(1, 0, 0, 1, 0, 0);
     // A single full-canvas store image prevents a second shop appearing at the
     // sides. Its fill is independent of the undistorted foreground coordinates.
-    // Apply the contrast once to the cached shop, keeping food and boy intact.
+    // Soften the cached shop only; food, shelves and boy stay crisp.
     bg.save();
-    bg.filter = 'contrast(1.12) saturate(1.04)';
-    bg.drawImage(store, 0, 0, pixelWidth, pixelHeight);
+    const blur = 3 * scale;
+    const bleed = Math.ceil(blur * 3);
+    if ('filter' in bg) {
+      bg.filter = `blur(${blur}px) saturate(0.6) contrast(0.82) brightness(0.86)`;
+      bg.drawImage(store, -bleed, -bleed, pixelWidth + bleed * 2, pixelHeight + bleed * 2);
+    } else {
+      // Older iPhone browsers lack Canvas filters. A small cached image softens
+      // packaging details; grade its pixels once instead of every frame.
+      const soft = document.createElement('canvas');
+      soft.width = Math.max(1, Math.round(pixelWidth / (6 * scale)));
+      soft.height = Math.max(1, Math.round(pixelHeight / (6 * scale)));
+      const pen = soft.getContext('2d');
+      pen.drawImage(store, 0, 0, soft.width, soft.height);
+      const pixels = pen.getImageData(0, 0, soft.width, soft.height);
+      for (let i = 0; i < pixels.data.length; i += 4) {
+        const grey = pixels.data[i] * 0.2126 + pixels.data[i + 1] * 0.7152 + pixels.data[i + 2] * 0.0722;
+        for (let channel = 0; channel < 3; channel += 1) {
+          pixels.data[i + channel] = ((grey + (pixels.data[i + channel] - grey) * 0.6 - 127.5) * 0.82 + 127.5) * 0.86;
+        }
+      }
+      pen.putImageData(pixels, 0, 0);
+      bg.imageSmoothingEnabled = true; bg.imageSmoothingQuality = 'high';
+      bg.drawImage(soft, 0, 0, pixelWidth, pixelHeight);
+    }
     bg.restore();
+    bg.fillStyle = '#355c5010';
+    bg.fillRect(0, 0, pixelWidth, pixelHeight);
     bg.setTransform(scale, 0, 0, scale, offsetX, offsetY);
     for (const rail of layout.rails) drawShelf(bg, shelf, rail);
   }
@@ -522,8 +575,9 @@ export async function createFruitScene(canvas) {
       if (boosted && !reducedMotion.matches) drawBoostTrail(item, point, catchLayout);
       const sign = item.lane < 2 ? 1 : -1;
       const rotation = item.kind.startsWith('donut') ? sign * item.progress * 4.5 : sign * (0.12 + Math.sin(item.progress * 5) * 0.1);
-      const snackSize = item.kind === 'energy' ? 66 : item.kind === 'sandwich' ? 68 : 60;
-      drawSnack(ctx, sprites, item.kind, point.x, point.y, snackSize * layout.foodFactor, rotation);
+      const donut = item.kind.startsWith('donut');
+      const snackSize = item.kind === 'energy' ? 66 : item.kind === 'sandwich' ? 68 : donut ? 75 : 60;
+      drawSnack(ctx, sprites, item.kind, point.x, point.y - (donut ? 6 * layout.foodFactor : 0), snackSize * layout.foodFactor, rotation);
     }
 
     for (const item of dropped) {
