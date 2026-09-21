@@ -666,3 +666,17 @@ test('loss protection behaves identically with large and small time steps', () =
   assert.deepEqual(events, splitEvents);
   assert.deepEqual({ ...whole, random: undefined }, { ...split, random: undefined });
 });
+
+test('touching any part of a sloped shelf selects its own lane', async () => {
+  const { laneAtPoint, fruitPoint } = await import('./fruit-scene.js');
+  for (let lane = 0; lane < 4; lane++) {
+    for (const progress of [0, 0.1, 0.35, 0.65, 0.7]) {
+      const point = fruitPoint(lane, progress);
+      assert.equal(laneAtPoint(point.x, point.y + 19), lane, `${lane} at ${progress}`);
+    }
+  }
+  assert.equal(laneAtPoint(330, 288), 0);
+  assert.equal(laneAtPoint(327, 455), 1);
+  assert.equal(laneAtPoint(670, 288), 2);
+  assert.equal(laneAtPoint(673, 455), 3);
+});

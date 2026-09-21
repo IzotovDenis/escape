@@ -7,6 +7,7 @@ const ROLL_END = 0.70;
 
 const HERO_HEIGHT = 405;
 const HERO_FLOOR = 666;
+const UPPER_REACH = 65;
 // Default basket positions; wide screens anchor them to the shelf tips below.
 export const LANE_TARGETS = Object.freeze([
   { x: 330, y: 353 }, { x: 327, y: 455 },
@@ -44,7 +45,7 @@ function createRails(targets, foodFactor = 1, portrait = false, bounds = { left:
   return targets.map((target, lane) => {
     const left = lane < 2;
     const end = { x: left ? bounds.left + span : bounds.right - span,
-      y: target.y - (portrait ? 105 * foodFactor : 110) };
+      y: target.y - (portrait ? 105 * foodFactor : 110) + (lane % 2 ? 50 * foodFactor : 0) };
     const startX = left ? bounds.left - 25 : bounds.right + 25;
     const rise = Math.abs(end.x - startX) * (portrait ? 0.9 : 0.5383);
     return createShelfRail({ x: startX, y: end.y - rise }, end, foodFactor);
@@ -90,6 +91,24 @@ export function fruitPoint(lane, progress, layout = DESKTOP_LAYOUT) {
   const drop = (p - ROLL_END) / (1 - ROLL_END);
   return { x: rail.end.x + (target.x - rail.end.x) * drop,
     y: rail.end.y + (target.y - rail.end.y) * drop * drop };
+}
+
+/** Choose the shelf being touched, including its sloping outer end. */
+export function laneAtPoint(x, y, layout = DESKTOP_LAYOUT) {
+  const side = x < WIDTH / 2 ? 0 : 2;
+  const rail = layout.rails[side];
+  const onShelves = side === 0 ? x <= rail.end.x : x >= rail.end.x;
+  if (onShelves) {
+    const shelfY = index => {
+      const { start, end } = layout.rails[index];
+      const t = Math.max(0, Math.min(1, (x - start.x) / (end.x - start.x)));
+      return start.y + (end.y - start.y) * t + 19 * layout.foodFactor;
+    };
+    return side + (y < (shelfY(side) + shelfY(side + 1)) / 2 ? 0 : 1);
+  }
+  const split = (layout.targets[side].y - UPPER_REACH * layout.heroFactor
+    + layout.targets[side + 1].y) / 2;
+  return side + (y < split ? 0 : 1);
 }
 
 function loadImage(src, optional = false) {
@@ -390,7 +409,7 @@ export async function createFruitScene(canvas) {
     bg.fillStyle = '#355c5010';
     bg.fillRect(0, 0, pixelWidth, pixelHeight);
     bg.setTransform(scale, 0, 0, scale, offsetX, offsetY);
-    for (const rail of layout.rails) drawShelf(bg, shelf, rail);
+
   }
 
   function resetEffects() {
@@ -502,7 +521,7 @@ export async function createFruitScene(canvas) {
     glow.addColorStop(0.55, '#ffd16b24');
     glow.addColorStop(1, '#ffc33d00');
     ellipse(ctx, location.basket.x, centreY, radius, radius * 0.72, glow);
-    ellipse(ctx, location.feet.x, layout.heroFloor, 96 * layout.heroFactor,
+    ellipse(ctx, location.feet.x, location.feet.y, 96 * layout.heroFactor,
       12 * layout.heroFactor, '#ffcc4838');
   }
 
@@ -539,16 +558,40 @@ export async function createFruitScene(canvas) {
     const boosted = game.boostRemaining > 0;
     const variant = poseCycle.select(lane, events.some(event => event.type === 'catch'), reducedMotion.matches);
     const actor = illustrations[variant][spicy ? 'spicy' : 'normal'][lane];
-    const location = boyPlacement(actor, layout.targets[lane], layout.heroFloor, layout.heroFactor);
-    // A crouch changes the height of the basket, not the boy's body scale. Food
-    // finishes its fall at this pose's actual opening while shelves stay still.
+    const upper = lane % 2 === 0;
+    const location = boyPlacement(actor, layout.targets[lane],
+      layout.heroFloor - (upper ? UPPER_REACH * layout.heroFactor : 0), layout.heroFactor);
+    // The upper stance steps closer to its shelf without stretching the sprite.
+    // Food and effects follow the actual basket opening in either stance.
     const targets = layout.targets.map((target, index) => index === lane ? location.basket : target);
     const catchLayout = { ...layout, targets };
     processEvents(events, targets);
-    const shadow = ctx.createRadialGradient(location.feet.x, layout.heroFloor, 2,
-      location.feet.x, layout.heroFloor, 103 * layout.heroFactor);
+    // Shelf selection is visible before food arrives; snacks remain fully opaque.
+    for (let index = 0; index < layout.rails.length; index += 1) {
+      if (index === lane) continue;
+      ctx.save(); ctx.globalAlpha = 0.82;
+      drawShelf(ctx, shelf, layout.rails[index]); ctx.restore();
+    }
+    const selectedRail = layout.rails[lane];
+    ctx.save();
+    ctx.shadowColor = '#ffe385'; ctx.shadowBlur = 16 * scale;
+    drawShelf(ctx, shelf, selectedRail);
+    ctx.restore();
+    const lift = 19 * layout.foodFactor;
+    line(ctx, selectedRail.start.x, selectedRail.start.y + lift,
+      selectedRail.end.x, selectedRail.end.y + lift, 8 * layout.foodFactor, '#ffc646');
+    line(ctx, selectedRail.start.x, selectedRail.start.y + lift,
+      selectedRail.end.x, selectedRail.end.y + lift, 3 * layout.foodFactor, '#fff5b8');
+    // A short landing guide links the selected shelf directly to the basket.
+    ctx.save(); ctx.setLineDash([7 * layout.foodFactor, 8 * layout.foodFactor]);
+    ctx.lineWidth = 3 * layout.foodFactor; ctx.strokeStyle = '#ffe9a5cc';
+    ctx.beginPath(); ctx.moveTo(selectedRail.end.x, selectedRail.end.y);
+    ctx.quadraticCurveTo(location.basket.x, selectedRail.end.y,
+      location.basket.x, location.basket.y); ctx.stroke(); ctx.restore();
+    const shadow = ctx.createRadialGradient(location.feet.x, location.feet.y, 2,
+      location.feet.x, location.feet.y, 103 * layout.heroFactor);
     shadow.addColorStop(0, '#30443e5a'); shadow.addColorStop(1, '#30443e00');
-    ellipse(ctx, location.feet.x, layout.heroFloor + 1, 108 * layout.heroFactor, 17 * layout.heroFactor, shadow);
+    ellipse(ctx, location.feet.x, location.feet.y + 1, 108 * layout.heroFactor, 17 * layout.heroFactor, shadow);
     if (boosted) drawBoostAura(location);
     ctx.save();
     if (boosted) {
@@ -558,6 +601,13 @@ export async function createFruitScene(canvas) {
     }
     paintBoyFrame(ctx, actor, location, reducedMotion.matches ? 0 : Math.sin(time * 2.5) * .25);
     ctx.restore();
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(location.basket.x, location.basket.y + 4 * layout.heroFactor,
+      42 * layout.heroFactor, 12 * layout.heroFactor, 0, 0, TAU);
+    ctx.strokeStyle = '#ffe078'; ctx.lineWidth = 3 * layout.heroFactor;
+    ctx.shadowColor = '#ffd34d'; ctx.shadowBlur = 8 * scale;
+    ctx.stroke(); ctx.restore();
 
     const items = game.phase === 'ready' && !(game.fruits || []).length ? [
       { lane: 0, kind: 'donut-pink', progress: 0.34 },
@@ -629,8 +679,7 @@ export async function createFruitScene(canvas) {
     if (!rect.width || !rect.height) return 1;
     const x = ((clientX - rect.left) * canvas.width / rect.width - offsetX) / scale;
     const y = ((clientY - rect.top) * canvas.height / rect.height - offsetY) / scale;
-    const split = (layout.targets[0].y + layout.targets[1].y) / 2;
-    return (x < WIDTH / 2 ? 0 : 2) + (y < split ? 0 : 1);
+    return laneAtPoint(x, y, layout);
   }
 
   function drawMenuHero(menuCanvas) {
