@@ -189,3 +189,9 @@ iPhone / iPad: открой ссылку в Safari → «Поделиться» 
 ## Общий главный экран
 
 Главная страница `/escape/` теперь открывает «Солнечные игры» с четырьмя ссылками: `school.html`, `aquapark.html`, `seven.html`, `shop.html`. `fruit.html` — совместимый прежний адрес «Севен-переполоха». В каждой игре есть возврат «Все игры». Общий экран адаптирован для портретного телефона; выбор игр не требует загрузки Three.js. Публикация использует существующий GitHub Pages workflow.
+
+## Shop interior visual upgrade
+
+The shop now uses a generated eight-pack texture atlas (`shop-packaging.webp`, about 841 KB), inflated snack bags, stocked endcaps, glass refrigerator fronts, detailed bottles and wrapped pastries. Woodgrain, ceiling tiles, room environment lighting, SSAO and a subtle planar floor reflection add material depth. Static fixtures are merged by material; repeated products use InstancedMesh while retaining individual picking targets. Mobile postprocessing resolution is capped.
+
+Validated: order collection, checkout, next mission, map, pause and touch movement in Chromium at 844x390 and 390x844. The published scene remains an interactive 3D environment rather than a static reference image.

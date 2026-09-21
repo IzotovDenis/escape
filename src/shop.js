@@ -93,12 +93,12 @@ function tick(now){
  }}
  requestAnimationFrame(tick);
 }
-try{world=createShop($('shop-world'));home();requestAnimationFrame(tick);}catch(error){console.error(error);$('start').disabled=true;$('load-error').hidden=false;$('load-error').textContent='Не удалось запустить 3D. Открой игру в браузере с WebGL 2 и включённым аппаратным ускорением.';}
+try{$('start').disabled=true;$('start').textContent='Расставляем товары…';world=createShop($('shop-world'));home();world.ready.then(()=>{requestAnimationFrame(tick);$('start').disabled=false;$('start').textContent='Взять корзинку →';}).catch(error=>{console.error(error);$('load-error').hidden=false;$('load-error').textContent='Не удалось загрузить упаковки. Обнови страницу, когда появится интернет.';});}catch(error){console.error(error);$('start').disabled=true;$('load-error').hidden=false;$('load-error').textContent='Не удалось запустить 3D. Открой игру в браузере с WebGL 2 и включённым аппаратным ускорением.';}
 
 // Development-only browser verification, excluded from production builds.
 if(import.meta.env.DEV && new URLSearchParams(location.search).has('verify')) {
   window.shopVerify={
-    state:()=>({mode,player:{...player},yaw,pitch,round,seconds,mission:JSON.parse(JSON.stringify(mission??null)),target:world?.target()?.userData.type,products:world?.products.filter(p=>p.userData.available).map(p=>({type:p.userData.type,x:p.position.x,y:p.position.y,z:p.position.z}))}),
+    state:()=>({mode,player:{...player},yaw,pitch,round,seconds,mission:JSON.parse(JSON.stringify(mission??null)),target:world?.target()?.userData.type,drawCalls:world?.renderer.info.render.calls,triangles:world?.renderer.info.render.triangles,products:world?.products.filter(p=>p.userData.available).map(p=>({type:p.userData.type,x:p.position.x,y:p.position.y,z:p.position.z}))}),
     pose:(x,z,lookX,lookY,lookZ)=>{player.x=x;player.z=z;const dx=lookX-x,dz=lookZ-z;yaw=Math.atan2(-dx,-dz);pitch=Math.atan2(lookY-1.6,Math.hypot(dx,dz));world.render(player,yaw,pitch);},
   };
 }
